@@ -249,7 +249,9 @@
     // Search
     $("#searchForm").addEventListener("submit", ev => {
       ev.preventDefault();
-      doSearch($("#searchInput").value);
+      const input = $("#searchInput");
+      doSearch(input.value);
+      input.value = "";
     });
 
     // Settings open/close
