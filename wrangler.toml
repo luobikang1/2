@@ -1,0 +1,4 @@
+# Cloudflare Pages — wrangler.toml
+# Deploy:  npx wrangler pages deploy . --project-name white-fox
+name = "white-fox"
+pages_build_output_dir = "."

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="白狐 White Fox — 聚合 Baidu / Google / GitHub / Cloudflare 的搜索导航起始页，含域名、邮箱、免费服务器、IP 查询、IT 学习导航，支持书签、历史、主题与多语言。" />
+  <title>白狐 White Fox</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A6%8A%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-logo" aria-hidden="true">&#129418;</span>
+      <span class="brand-name" data-i18n="brand">白狐 White Fox</span>
+    </div>
+    <div class="topbar-actions">
+      <button id="langBtn" class="icon-btn" type="button" title="Language" aria-haspopup="true">
+        <span aria-hidden="true">&#127760;</span><span id="langLabel">中文</span>
+      </button>
+      <button id="themeBtn" class="icon-btn" type="button" title="Theme" data-i18n-title="theme_toggle">
+        <span aria-hidden="true">&#127769;</span>
+      </button>
+      <button id="settingsBtn" class="icon-btn" type="button" title="Settings" data-i18n-title="settings">
+        <span aria-hidden="true">&#9881;&#65039;</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <h1 class="hero-title">
+        <span class="brand-logo-lg" aria-hidden="true">&#129418;</span>
+        <span data-i18n="brand">白狐 White Fox</span>
+      </h1>
+      <p class="hero-subtitle" data-i18n="subtitle">聚合搜索与上网导航起始页</p>
+
+      <div class="search">
+        <div class="engine-tabs" id="engineTabs" role="tablist"></div>
+        <form class="search-box" id="searchForm" autocomplete="off">
+          <input
+            type="text"
+            id="searchInput"
+            class="search-input"
+            data-i18n-placeholder="search_placeholder"
+            placeholder="输入关键词，回车搜索…"
+            aria-label="search"
+          />
+          <button type="submit" class="search-btn" data-i18n="search_btn">搜索</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- Bookmarks -->
+    <section class="cards-section">
+      <div class="section-head">
+        <h2 class="section-title"><span aria-hidden="true">&#11088;</span> <span data-i18n="cat_bookmarks">我的书签</span></h2>
+        <button id="addBookmarkBtn" class="text-btn" type="button" data-i18n="add_bookmark">+ 添加书签</button>
+      </div>
+      <div class="cards" id="bookmarksGrid">
+        <p class="empty-hint" id="bookmarksEmpty" data-i18n="bookmarks_empty">还没有书签，点击右上角“添加书签”。</p>
+      </div>
+    </section>
+
+    <!-- Link categories rendered by JS -->
+    <div id="categories"></div>
+
+    <!-- History -->
+    <section class="cards-section">
+      <div class="section-head">
+        <h2 class="section-title"><span aria-hidden="true">&#128340;</span> <span data-i18n="cat_history">搜索历史</span></h2>
+        <button id="clearHistoryBtn" class="text-btn" type="button" data-i18n="clear_history">清空历史</button>
+      </div>
+      <ul class="history-list" id="historyList"></ul>
+      <p class="empty-hint" id="historyEmpty" data-i18n="history_empty">暂无历史记录。</p>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span data-i18n="footer_made">白狐 White Fox · 自由、开放的上网导航</span>
+    <span class="dot">·</span>
+    <a href="https://developers.cloudflare.com/pages/" target="_blank" rel="noopener" data-i18n="footer_deploy">部署到 Cloudflare Pages</a>
+  </footer>
+
+  <!-- Settings drawer -->
+  <div class="overlay" id="overlay" hidden></div>
+  <aside class="drawer" id="settingsDrawer" hidden aria-label="settings">
+    <div class="drawer-head">
+      <h3 data-i18n="settings">设置</h3>
+      <button class="icon-btn" id="closeSettings" type="button" aria-label="close">&#10005;</button>
+    </div>
+
+    <div class="drawer-body">
+      <div class="field">
+        <label data-i18n="language">语言</label>
+        <select id="langSelect"></select>
+      </div>
+
+      <div class="field">
+        <label data-i18n="theme_mode">主题模式</label>
+        <div class="seg" id="themeSeg">
+          <button type="button" data-mode="light" data-i18n="theme_light">浅色</button>
+          <button type="button" data-mode="dark" data-i18n="theme_dark">深色</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label data-i18n="bg_color">背景颜色</label>
+        <div class="swatches" id="swatches"></div>
+        <div class="custom-color">
+          <input type="color" id="bgColorPicker" value="#5b8def" />
+          <span data-i18n="custom_color">自定义颜色</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label data-i18n="default_engine">默认搜索引擎</label>
+        <select id="defaultEngineSelect"></select>
+      </div>
+
+      <button class="reset-btn" id="resetBtn" type="button" data-i18n="reset">恢复默认设置</button>
+    </div>
+  </aside>
+
+  <!-- Add bookmark modal -->
+  <div class="modal" id="bookmarkModal" hidden>
+    <div class="modal-card">
+      <h3 data-i18n="add_bookmark">添加书签</h3>
+      <form id="bookmarkForm">
+        <label data-i18n="bm_name">名称</label>
+        <input type="text" id="bmName" required />
+        <label data-i18n="bm_url">网址</label>
+        <input type="url" id="bmUrl" placeholder="https://" required />
+        <div class="modal-actions">
+          <button type="button" class="text-btn" id="bmCancel" data-i18n="cancel">取消</button>
+          <button type="submit" class="search-btn" data-i18n="save">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/i18n.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
