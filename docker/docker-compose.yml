@@ -1,5 +1,5 @@
 # ============================================================================
-#  🦊 北极狐 (Arctic Fox) — docker compose
+#  🦊 北极狐 (Arctic Fox) v2 — docker compose
 #  用法:
 #    1. cp .env.example .env  并填写 TUNNEL_TOKEN / UUID
 #    2. docker compose up -d --build
@@ -15,12 +15,18 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-    # TUIC 为 UDP 直连，需要把端口映射出来（WS/Argo 走 cloudflared，无需映射）
+    # TUIC + Hysteria2 为 UDP 直连，需要映射端口（WS/Argo 走 cloudflared，无需映射）
     ports:
       - "${TUIC_PORT:-443}:${TUIC_PORT:-443}/udp"
-    # cloudflared 需要出网；如使用 IPv6 直连 TUIC 可按需调整
+      - "${HYSTERIA2_PORT:-8443}:${HYSTERIA2_PORT:-8443}/udp"
+    # 持久化证书，避免重启后客户端需要更新指纹
+    volumes:
+      - beijihu-certs:/etc/beijihu
     networks:
       - beijihu-net
+
+volumes:
+  beijihu-certs:
 
 networks:
   beijihu-net:

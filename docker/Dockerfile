@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # ============================================================================
-#  🦊 北极狐 (Arctic Fox) — TUIC + Argo 隧道节点
-#  单容器集成: cloudflared (Cloudflare Tunnel) + sing-box (VLESS/VMess/Trojan/TUIC)
+#  🦊 北极狐 (Arctic Fox) v2 — TUIC + Hysteria2 + Argo 隧道节点
+#  单容器集成: cloudflared (Cloudflare Tunnel) + sing-box (VLESS/VMess/Trojan/TUIC/Hysteria2)
 #  只需提供 Cloudflare 隧道令牌 (TUNNEL_TOKEN) 与 UUID 即可起飞
 # ============================================================================
 
@@ -45,10 +45,10 @@ RUN set -eux; \
 FROM alpine:3.20
 
 LABEL org.opencontainers.image.title="beijihu-tuic" \
-      org.opencontainers.image.description="北极狐 Arctic Fox — TUIC + Cloudflare Argo tunnel node" \
+      org.opencontainers.image.description="北极狐 Arctic Fox v2 — TUIC + Hysteria2 + Cloudflare Argo tunnel node" \
       org.opencontainers.image.licenses="MIT"
 
-RUN apk add --no-cache ca-certificates openssl jq tzdata bash coreutils tini \
+RUN apk add --no-cache ca-certificates openssl jq tzdata bash coreutils tini curl \
     && rm -rf /var/cache/apk/*
 
 COPY --from=fetch /usr/local/bin/sing-box   /usr/local/bin/sing-box
@@ -58,7 +58,6 @@ COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # 默认环境变量 (可在 docker run -e / compose 覆盖)
-# 注意: TUNNEL_TOKEN / UUID / TUIC_PASSWORD 等敏感值不在此设默认，运行时通过 -e 或 .env 提供
 ENV ARGO_DOMAIN="" \
     VLESS_PATH="/vless" \
     VMESS_PATH="/vmess" \
@@ -67,11 +66,17 @@ ENV ARGO_DOMAIN="" \
     VMESS_PORT="8002" \
     TROJAN_PORT="8003" \
     TUIC_PORT="443" \
+    HYSTERIA2_PORT="8443" \
     NODE_NAME="北极狐" \
     LOG_LEVEL="info"
 
-# TUIC 直连端口 (UDP)。Argo/WS 走 cloudflared，无需额外暴露端口。
+# TUIC 直连端口 (UDP) + Hysteria2 直连端口 (UDP)
 EXPOSE 443/udp
+EXPOSE 8443/udp
+
+# 健康检查: 确认 sing-box 进程存活
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD pgrep -x sing-box > /dev/null && pgrep -x cloudflared > /dev/null || exit 1
 
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["/entrypoint.sh"]

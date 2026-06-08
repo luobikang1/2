@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # ============================================================================
-#  🦊 北极狐 (Arctic Fox) entrypoint
+#  🦊 北极狐 (Arctic Fox) v2 entrypoint
 #  生成 sing-box 配置 + 自签证书，启动 sing-box 与 cloudflared，并打印节点链接
+#  支持: VLESS / VMess / Trojan / TUIC / Hysteria2
 # ============================================================================
 set -euo pipefail
 
@@ -22,6 +23,7 @@ if [ -z "${UUID:-}" ]; then
   warn "未提供 UUID，已自动生成: ${UUID}"
 fi
 TUIC_PASSWORD="${TUIC_PASSWORD:-$UUID}"
+HYSTERIA2_PASSWORD="${HYSTERIA2_PASSWORD:-$UUID}"
 NODE_NAME="${NODE_NAME:-北极狐}"
 LOG_LEVEL="${LOG_LEVEL:-info}"
 
@@ -32,12 +34,13 @@ VLESS_PORT="${VLESS_PORT:-8001}"
 VMESS_PORT="${VMESS_PORT:-8002}"
 TROJAN_PORT="${TROJAN_PORT:-8003}"
 TUIC_PORT="${TUIC_PORT:-443}"
+HYSTERIA2_PORT="${HYSTERIA2_PORT:-8443}"
 
 # SNI/证书域名：优先使用隧道域名，否则使用一个通用伪装域名
 SNI="${ARGO_DOMAIN:-www.bing.com}"
 
 # ---------------------------------------------------------------------------
-# 2) 自签证书 (供 TUIC 直连使用，客户端需 allow_insecure)
+# 2) 自签证书 (供 TUIC / Hysteria2 直连使用，客户端需 allow_insecure)
 # ---------------------------------------------------------------------------
 if [ ! -f "${CERT}" ] || [ ! -f "${KEY}" ]; then
   log "生成自签 TLS 证书 (CN=${SNI}) ..."
@@ -95,6 +98,20 @@ cat > "${CONFIG}" <<EOF
         "certificate_path": "${CERT}",
         "key_path": "${KEY}"
       }
+    },
+    {
+      "type": "hysteria2",
+      "tag": "hysteria2-in",
+      "listen": "::",
+      "listen_port": ${HYSTERIA2_PORT},
+      "users": [ { "password": "${HYSTERIA2_PASSWORD}" } ],
+      "tls": {
+        "enabled": true,
+        "server_name": "${SNI}",
+        "alpn": [ "h3" ],
+        "certificate_path": "${CERT}",
+        "key_path": "${KEY}"
+      }
     }
   ],
   "outbounds": [
@@ -132,7 +149,6 @@ else
   cloudflared tunnel --no-autoupdate --loglevel "${LOG_LEVEL}" \
     --url "http://localhost:${VLESS_PORT}" > "${QLOG}" 2>&1 &
   CF_PID=$!
-  # 解析临时域名 (grep 未命中会返回非零，需 || true 以兼容 set -e/pipefail)
   for _ in $(seq 1 30); do
     QUICK_DOMAIN="$(grep -oE 'https://[a-zA-Z0-9.-]+\.trycloudflare\.com' "${QLOG}" 2>/dev/null | head -n1 | sed 's#https://##' || true)"
     [ -n "${QUICK_DOMAIN}" ] && break
@@ -157,21 +173,23 @@ PUBLIC_IP="$(get_public_ip)"
 print_links() {
   local d="${ARGO_DOMAIN:-}"
   echo ""
-  echo "==================== 🦊 北极狐 节点信息 ===================="
+  echo "==================== 🦊 北极狐 v2 节点信息 ===================="
   echo " UUID         : ${UUID}"
   echo " TUIC 密码    : ${TUIC_PASSWORD}"
+  echo " Hy2 密码     : ${HYSTERIA2_PASSWORD}"
   echo " 隧道域名     : ${d:-<未知，请在面板填写你的隧道域名>}"
-  echo " 服务器 IP    : ${PUBLIC_IP}  (TUIC 直连使用)"
+  echo " 服务器 IP    : ${PUBLIC_IP}  (TUIC/Hysteria2 直连使用)"
   echo "-----------------------------------------------------------"
   if [ -n "${d}" ]; then
-    echo " VLESS  : vless://${UUID}@${d}:443?encryption=none&security=tls&sni=${d}&type=ws&host=${d}&path=$(printf '%s' "${VLESS_PATH}" | sed 's#/#%2F#g')#${NODE_NAME}-vless"
+    echo " VLESS  : vless://${UUID}@${d}:443?encryption=none&security=tls&sni=${d}&fp=chrome&type=ws&host=${d}&path=$(printf '%s' "${VLESS_PATH}" | sed 's#/#%2F#g')#${NODE_NAME}-vless"
     local vmess_json
     vmess_json=$(printf '{"v":"2","ps":"%s-vmess","add":"%s","port":"443","id":"%s","aid":"0","scy":"auto","net":"ws","type":"none","host":"%s","path":"%s","tls":"tls","sni":"%s"}' \
       "${NODE_NAME}" "${d}" "${UUID}" "${d}" "${VMESS_PATH}" "${d}")
     echo " VMess  : vmess://$(printf '%s' "${vmess_json}" | base64 -w0)"
-    echo " Trojan : trojan://${UUID}@${d}:443?security=tls&sni=${d}&type=ws&host=${d}&path=$(printf '%s' "${TROJAN_PATH}" | sed 's#/#%2F#g')#${NODE_NAME}-trojan"
+    echo " Trojan : trojan://${UUID}@${d}:443?security=tls&sni=${d}&fp=chrome&type=ws&host=${d}&path=$(printf '%s' "${TROJAN_PATH}" | sed 's#/#%2F#g')#${NODE_NAME}-trojan"
   fi
   echo " TUIC   : tuic://${UUID}:${TUIC_PASSWORD}@${PUBLIC_IP}:${TUIC_PORT}?congestion_control=bbr&alpn=h3&sni=${SNI}&allow_insecure=1#${NODE_NAME}-tuic"
+  echo " Hy2    : hysteria2://${HYSTERIA2_PASSWORD}@${PUBLIC_IP}:${HYSTERIA2_PORT}?sni=${SNI}&alpn=h3&insecure=1#${NODE_NAME}-hysteria2"
   echo "==========================================================="
   echo " 提示: 可视化面板中输入【隧道域名】即可一键生成上述节点与二维码"
   echo "==========================================================="
@@ -185,7 +203,6 @@ print_links
 term() { warn "收到退出信号，正在停止..."; kill "${SB_PID}" "${CF_PID}" 2>/dev/null || true; }
 trap term TERM INT
 
-# 任一进程退出则容器退出
 wait -n "${SB_PID}" "${CF_PID}"
 EXIT_CODE=$?
 warn "子进程退出 (code=${EXIT_CODE})，正在收尾"
