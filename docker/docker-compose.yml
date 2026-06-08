@@ -7,6 +7,6 @@ services:
     restart: unless-stopped
     env_file: .env
     ports:
-      - "443:443/udp"   # TUIC 直连 (QUIC/UDP)
+      - "${TUIC_PORT:-443}:${TUIC_PORT:-443}/udp"   # TUIC 直连 (QUIC/UDP)
     environment:
       - TZ=Asia/Shanghai

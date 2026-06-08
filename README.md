@@ -140,6 +140,7 @@ python3 -m http.server 8080
 - 面板为**纯前端**生成，所有输入仅保存在你**本地浏览器**（localStorage），不会上传任何服务器。
 - TUIC 使用容器内自签证书，客户端需开启 `allow_insecure`（链接已带 `allow_insecure=1`）；若希望使用受信证书，可改用真实域名证书。
 - Docker 镜像基于 Alpine Linux，体积小、启动快，同时支持 `amd64` / `arm64` / `armv7` 架构。
+- 请勿将含真实 `TUNNEL_TOKEN` 的 `.env` 提交到公开仓库（`.gitignore` 已默认排除，但请注意安全）。
 
 ---
 
