@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🦊 北极狐 · 节点可视化配置面板</title>
+  <meta name="description" content="北极狐 Arctic Fox — TUIC + Cloudflare Argo 隧道节点可视化配置面板，输入隧道域名一键生成 VLESS / VMess / Trojan / TUIC 节点，支持二维码与一键复制。" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🦊%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="aurora"></div>
+
+  <header class="hero">
+    <h1>🦊 北极狐 <span class="sub">Arctic Fox</span></h1>
+    <p class="tagline">TUIC + Cloudflare Argo 隧道节点 · 可视化配置面板</p>
+    <p class="hint">输入你的<strong>隧道域名</strong>即可一键生成节点 · 支持二维码 · 一键复制 · 订阅链接</p>
+  </header>
+
+  <main class="container">
+    <section class="card form-card">
+      <h2>① 基本配置</h2>
+      <div class="grid">
+        <label class="field">
+          <span>隧道域名 <em>*</em></span>
+          <input id="domain" type="text" placeholder="node.example.com" autocomplete="off" />
+          <small>Cloudflare 隧道绑定的域名（必填）</small>
+        </label>
+        <label class="field">
+          <span>UUID <em>*</em></span>
+          <span class="with-btn">
+            <input id="uuid" type="text" placeholder="点击右侧按钮生成" autocomplete="off" />
+            <button type="button" id="genUuid" class="mini" title="随机生成 UUID">🎲</button>
+          </span>
+          <small>需与容器内 UUID 一致</small>
+        </label>
+        <label class="field">
+          <span>节点名称</span>
+          <input id="name" type="text" value="北极狐" autocomplete="off" />
+          <small>显示在客户端里的名字</small>
+        </label>
+        <label class="field">
+          <span>优选地址 / CDN</span>
+          <input id="cdn" type="text" placeholder="留空 = 使用隧道域名" autocomplete="off" />
+          <small>可填 Cloudflare 优选 IP / 域名（仅 WS 节点）</small>
+        </label>
+        <label class="field">
+          <span>端口 (CF)</span>
+          <select id="port">
+            <option value="443">443 (TLS)</option>
+            <option value="2053">2053 (TLS)</option>
+            <option value="2083">2083 (TLS)</option>
+            <option value="2087">2087 (TLS)</option>
+            <option value="2096">2096 (TLS)</option>
+            <option value="8443">8443 (TLS)</option>
+          </select>
+          <small>VLESS/VMess/Trojan 经 Cloudflare 的端口</small>
+        </label>
+      </div>
+
+      <details class="advanced">
+        <summary>② 高级选项（路径 / TUIC，一般保持默认）</summary>
+        <div class="grid">
+          <label class="field">
+            <span>VLESS 路径</span>
+            <input id="vlessPath" type="text" value="/vless" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>VMess 路径</span>
+            <input id="vmessPath" type="text" value="/vmess" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>Trojan 路径</span>
+            <input id="trojanPath" type="text" value="/trojan" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>TUIC 服务器地址 / IP</span>
+            <input id="tuicAddr" type="text" placeholder="留空 = 使用隧道域名" autocomplete="off" />
+            <small>TUIC 为直连，建议填服务器公网 IP</small>
+          </label>
+          <label class="field">
+            <span>TUIC 端口 (UDP)</span>
+            <input id="tuicPort" type="text" value="443" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>TUIC 密码</span>
+            <input id="tuicPass" type="text" placeholder="留空 = 使用 UUID" autocomplete="off" />
+          </label>
+        </div>
+      </details>
+
+      <div class="protocols">
+        <span class="proto-title">生成协议：</span>
+        <label><input type="checkbox" class="proto" value="vless" checked /> VLESS</label>
+        <label><input type="checkbox" class="proto" value="vmess" checked /> VMess</label>
+        <label><input type="checkbox" class="proto" value="trojan" checked /> Trojan</label>
+        <label><input type="checkbox" class="proto" value="tuic" checked /> TUIC</label>
+      </div>
+
+      <div class="actions">
+        <button type="button" id="generate" class="primary">⚡ 生成节点</button>
+        <button type="button" id="copyAll" class="ghost">📋 复制全部</button>
+        <button type="button" id="copySub" class="ghost">🔗 复制订阅(Base64)</button>
+      </div>
+    </section>
+
+    <section id="output" class="output" aria-live="polite"></section>
+  </main>
+
+  <footer class="footer">
+    <p>🦊 北极狐 Arctic Fox · 纯前端生成，数据不离开你的浏览器 · 可部署到 GitHub Pages / Cloudflare Pages / Vercel / Netlify</p>
+  </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <template id="nodeCardTpl">
+    <div class="node-card">
+      <div class="node-head">
+        <span class="badge"></span>
+        <span class="node-name"></span>
+      </div>
+      <div class="node-body">
+        <div class="qr"></div>
+        <div class="link-wrap">
+          <textarea class="link" readonly rows="4"></textarea>
+          <button type="button" class="copy mini">📋 复制</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <script src="js/qrcode.min.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

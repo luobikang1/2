@@ -1,0 +1,5 @@
+# Cloudflare Pages 部署配置
+# 直接上传:  npx wrangler pages deploy panel --project-name beijihu-panel
+name = "beijihu-panel"
+compatibility_date = "2024-11-01"
+pages_build_output_dir = "."
