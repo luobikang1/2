@@ -1,10 +1,9 @@
-# Netlify 部署配置（在 Netlify 选择本仓库后，将 Base/Publish 目录设为 panel）
 [build]
   publish = "."
-  command = ""
 
 [[headers]]
   for = "/*"
   [headers.values]
     X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
     Referrer-Policy = "no-referrer"

@@ -1,12 +1,12 @@
 /* ============================================================================
- * 🦊 北极狐 Arctic Fox — 节点可视化配置面板
+ * 🦊 白狐 White Fox — 节点可视化配置面板
  * 纯前端：输入隧道域名等参数，一键生成 VLESS / VMess / Trojan / TUIC 节点
  * 支持二维码、单条复制、复制全部、Base64 订阅，数据不离开浏览器
  * ==========================================================================*/
 (function () {
   "use strict";
 
-  var STORAGE_KEY = "beijihu-panel-v1";
+  var STORAGE_KEY = "baihu-panel-v1";
   var $ = function (id) { return document.getElementById(id); };
 
   var fields = [
@@ -25,7 +25,6 @@
     });
   }
 
-  // UTF-8 安全的 base64（VMess ps 名称可能含中文）
   function utf8ToB64(str) {
     return btoa(unescape(encodeURIComponent(str)));
   }
@@ -91,8 +90,8 @@
   // ---- 生成各协议链接 ----
   function buildLinks(s) {
     var domain = s.domain;
-    var name = s.name || "北极狐";
-    var addr = s.cdn || domain;             // WS 节点的连接地址（可优选）
+    var name = s.name || "白狐";
+    var addr = s.cdn || domain;
     var port = s.port || "443";
     var uuid = s.uuid;
     var out = [];
@@ -220,14 +219,12 @@
         .catch(function () { toast("复制失败", "warn"); });
     });
 
-    // 回车即生成
     document.querySelectorAll(".form-card input").forEach(function (el) {
       el.addEventListener("keydown", function (e) {
         if (e.key === "Enter") { e.preventDefault(); generate(); }
       });
     });
 
-    // 若有已保存且完整的配置，自动渲染一次
     var s = readState();
     if (s.domain && s.uuid) generate();
   }

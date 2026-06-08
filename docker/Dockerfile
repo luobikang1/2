@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1
 # ============================================================================
-#  🦊 北极狐 (Arctic Fox) — TUIC + Argo 隧道节点
+#  🦊 白狐 (White Fox) — TUIC + Cloudflare Argo 隧道节点
 #  单容器集成: cloudflared (Cloudflare Tunnel) + sing-box (VLESS/VMess/Trojan/TUIC)
-#  只需提供 Cloudflare 隧道令牌 (TUNNEL_TOKEN) 与 UUID 即可起飞
+#  只需提供 Cloudflare 隧道令牌 (TUNNEL_TOKEN) 与 UUID 即可运行
 # ============================================================================
 
 FROM alpine:3.20 AS fetch
@@ -44,8 +44,8 @@ RUN set -eux; \
 # ============================================================================
 FROM alpine:3.20
 
-LABEL org.opencontainers.image.title="beijihu-tuic" \
-      org.opencontainers.image.description="北极狐 Arctic Fox — TUIC + Cloudflare Argo tunnel node" \
+LABEL org.opencontainers.image.title="baihu-tuic" \
+      org.opencontainers.image.description="白狐 White Fox — TUIC + Cloudflare Argo 隧道节点 Docker" \
       org.opencontainers.image.licenses="MIT"
 
 RUN apk add --no-cache ca-certificates openssl jq tzdata bash coreutils tini \
@@ -58,7 +58,6 @@ COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # 默认环境变量 (可在 docker run -e / compose 覆盖)
-# 注意: TUNNEL_TOKEN / UUID / TUIC_PASSWORD 等敏感值不在此设默认，运行时通过 -e 或 .env 提供
 ENV ARGO_DOMAIN="" \
     VLESS_PATH="/vless" \
     VMESS_PATH="/vmess" \
@@ -67,7 +66,7 @@ ENV ARGO_DOMAIN="" \
     VMESS_PORT="8002" \
     TROJAN_PORT="8003" \
     TUIC_PORT="443" \
-    NODE_NAME="北极狐" \
+    NODE_NAME="白狐" \
     LOG_LEVEL="info"
 
 # TUIC 直连端口 (UDP)。Argo/WS 走 cloudflared，无需额外暴露端口。

@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>🦊 北极狐 · 节点可视化配置面板</title>
-  <meta name="description" content="北极狐 Arctic Fox — TUIC + Cloudflare Argo 隧道节点可视化配置面板，输入隧道域名一键生成 VLESS / VMess / Trojan / TUIC 节点，支持二维码与一键复制。" />
+  <title>🦊 白狐 · 节点可视化配置面板</title>
+  <meta name="description" content="白狐 White Fox — TUIC + Cloudflare Argo 隧道节点可视化配置面板，输入隧道域名一键生成 VLESS / VMess / Trojan / TUIC 节点，支持二维码与一键复制。" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🦊%3C/text%3E%3C/svg%3E" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
@@ -12,7 +12,7 @@
   <div class="aurora"></div>
 
   <header class="hero">
-    <h1>🦊 北极狐 <span class="sub">Arctic Fox</span></h1>
+    <h1>🦊 白狐 <span class="sub">White Fox</span></h1>
     <p class="tagline">TUIC + Cloudflare Argo 隧道节点 · 可视化配置面板</p>
     <p class="hint">输入你的<strong>隧道域名</strong>即可一键生成节点 · 支持二维码 · 一键复制 · 订阅链接</p>
   </header>
@@ -36,7 +36,7 @@
         </label>
         <label class="field">
           <span>节点名称</span>
-          <input id="name" type="text" value="北极狐" autocomplete="off" />
+          <input id="name" type="text" value="白狐" autocomplete="off" />
           <small>显示在客户端里的名字</small>
         </label>
         <label class="field">
@@ -108,7 +108,7 @@
   </main>
 
   <footer class="footer">
-    <p>🦊 北极狐 Arctic Fox · 纯前端生成，数据不离开你的浏览器 · 可部署到 GitHub Pages / Cloudflare Pages / Vercel / Netlify</p>
+    <p>🦊 白狐 White Fox · 纯前端生成，数据不离开你的浏览器 · 可部署到 GitHub Pages / Cloudflare Pages / Vercel / Netlify</p>
   </footer>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -122,7 +122,7 @@
       <div class="node-body">
         <div class="qr"></div>
         <div class="link-wrap">
-          <textarea class="link" readonly rows="4"></textarea>
+          <textarea class="link" rows="3" readonly></textarea>
           <button type="button" class="copy mini">📋 复制</button>
         </div>
       </div>

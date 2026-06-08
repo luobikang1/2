@@ -1,4 +1,4 @@
-name: Deploy 北极狐 Panel to GitHub Pages
+name: Deploy 白狐 Panel to GitHub Pages
 
 on:
   push:
