@@ -1,4 +1,4 @@
-# 🦊 北极狐 Arctic Fox
+# 🦊 白狐 White Fox
 
 > TUIC + Cloudflare Argo 隧道节点 · 一个容器搞定 · 可视化面板一键生成节点
 
@@ -6,7 +6,7 @@
 ![Docker](https://img.shields.io/badge/docker-ready-2496ed)
 ![Panel](https://img.shields.io/badge/panel-static-orange)
 
-北极狐是一套「**Docker 隧道节点** + **可视化配置面板**」组合：
+白狐是一套「**Docker 隧道节点** + **可视化配置面板**」组合：
 
 - 🐳 **一个容器** 同时集成 [cloudflared](https://github.com/cloudflare/cloudflared)（Cloudflare 隧道）与 [sing-box](https://github.com/SagerNet/sing-box)（VLESS / VMess / Trojan / **TUIC**）。
 - 🔑 **只需隧道令牌 + UUID** 即可起飞；不填令牌则自动启用临时 TryCloudflare 隧道用于测试。
@@ -15,18 +15,18 @@
 - ☁️ 面板可部署到 **GitHub Pages / Cloudflare Pages / Vercel / Netlify** 等任意静态托管。
 
 ```
-┌──────────────────────────── Docker 容器 (beijihu) ────────────────────────────┐
-│                                                                                │
-│   cloudflared ──(Argo 隧道, 令牌)── Cloudflare 边缘 ── 你的域名:443 (TLS/WS)    │
-│        │                                                                       │
-│        └─▶ sing-box   :8001 VLESS-WS   :8002 VMess-WS   :8003 Trojan-WS        │
-│            sing-box   :443/udp  TUIC (QUIC, 直连, 自签证书)                     │
-└────────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────── Docker 容器 (baihu) ────────────────────────────┐
+│                                                                              │
+│   cloudflared ──(Argo 隧道, 令牌)── Cloudflare 边缘 ── 你的域名:443 (TLS/WS) │
+│        │                                                                     │
+│        └─▶ sing-box   :8001 VLESS-WS   :8002 VMess-WS   :8003 Trojan-WS     │
+│            sing-box   :443/udp  TUIC (QUIC, 直连, 自签证书)                   │
+└──────────────────────────────────────────────────────────────────────────────┘
                          ▲                                  ▲
             （WS 节点经 Cloudflare CDN）        （TUIC 直连服务器公网 IP）
 ```
 
-> ⚠️ **为什么 TUIC 走直连而不经隧道？** Cloudflare Tunnel 本质是 TCP/HTTP 隧道，而 TUIC 基于 QUIC/UDP，二者无法叠加。因此北极狐采用业界通行方案：**VLESS/VMess/Trojan over WebSocket 经 Argo 隧道**（享受 Cloudflare CDN、隐藏源站 IP），同时内置**原生 TUIC 直连端口**满足对 TUIC 的需求。
+> ⚠️ **为什么 TUIC 走直连而不经隧道？** Cloudflare Tunnel 本质是 TCP/HTTP 隧道，而 TUIC 基于 QUIC/UDP，二者无法叠加。因此白狐采用业界通行方案：**VLESS/VMess/Trojan over WebSocket 经 Argo 隧道**（享受 Cloudflare CDN、隐藏源站 IP），同时内置**原生 TUIC 直连端口**满足对 TUIC 的需求。
 
 ---
 
@@ -78,17 +78,17 @@ docker compose logs -f          # 查看自动打印的节点链接
 ### 3. 或使用 docker run
 
 ```bash
-docker build -t beijihu-tuic ./docker
+docker build -t baihu-tuic ./docker
 
-docker run -d --name beijihu \
+docker run -d --name baihu \
   --restart unless-stopped \
   -p 443:443/udp \
   -e TUNNEL_TOKEN="你的隧道令牌" \
   -e UUID="$(cat /proc/sys/kernel/random/uuid)" \
   -e ARGO_DOMAIN="node.example.com" \
-  beijihu-tuic
+  baihu-tuic
 
-docker logs -f beijihu
+docker logs -f baihu
 ```
 
 启动后日志会直接打印 **VLESS / VMess / Trojan / TUIC** 四个节点链接，可直接复制使用。
@@ -100,7 +100,7 @@ docker logs -f beijihu
 | `TUNNEL_TOKEN` | 推荐 | 空 | Cloudflare 隧道令牌；留空则启用临时 TryCloudflare 隧道（域名随机） |
 | `UUID` | 推荐 | 自动生成 | VLESS/VMess/Trojan/TUIC 共用 |
 | `ARGO_DOMAIN` | 推荐 | 空 | 你的固定隧道域名，用于打印链接与 TUIC 证书 SNI |
-| `NODE_NAME` | 否 | 北极狐 | 节点名称前缀 |
+| `NODE_NAME` | 否 | 白狐 | 节点名称前缀 |
 | `VLESS_PATH` / `VMESS_PATH` / `TROJAN_PATH` | 否 | `/vless` `/vmess` `/trojan` | WS 路径 |
 | `VLESS_PORT` / `VMESS_PORT` / `TROJAN_PORT` | 否 | `8001` `8002` `8003` | sing-box 本地监听端口（cloudflared 指向它们） |
 | `TUIC_PORT` | 否 | `443` | TUIC 直连 UDP 端口（记得 `-p` 映射） |
@@ -120,7 +120,7 @@ docker logs -f beijihu
 | 平台 | 方式 |
 |------|------|
 | **GitHub Pages** | 已内置 `.github/workflows/deploy-panel-pages.yml`，推送到 `main` 自动部署 `panel/` |
-| **Cloudflare Pages** | `npx wrangler pages deploy panel --project-name beijihu-panel`；或在 Dashboard 连接仓库，构建输出目录填 `panel` |
+| **Cloudflare Pages** | `npx wrangler pages deploy panel --project-name baihu-panel`；或在 Dashboard 连接仓库，构建输出目录填 `panel` |
 | **Vercel** | 导入仓库，**Root Directory** 设为 `panel`，框架选 Other |
 | **Netlify** | 连接仓库，Base/Publish 目录设为 `panel`；或把 `panel/` 拖到 [Netlify Drop](https://app.netlify.com/drop) |
 | **任意静态托管** | 直接上传 `panel/` 目录下所有文件 |
@@ -139,8 +139,10 @@ python3 -m http.server 8080
 
 - 面板为**纯前端**生成，所有输入仅保存在你**本地浏览器**（localStorage），不会上传任何服务器。
 - TUIC 使用容器内自签证书，客户端需开启 `allow_insecure`（链接已带 `allow_insecure=1`）；若希望使用受信证书，可改用真实域名证书。
-- 请勿将含真实 `TUNNEL_TOKEN` 的 `.env` 提交到公开仓库。
+- Docker 镜像基于 Alpine Linux，体积小、启动快，同时支持 `amd64` / `arm64` / `armv7` 架构。
 
-## 📄 License
+---
+
+## 📜 License
 
 MIT

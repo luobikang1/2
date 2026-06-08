@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 # ============================================================================
-#  🦊 北极狐 (Arctic Fox) entrypoint
+#  🦊 白狐 (White Fox) entrypoint
 #  生成 sing-box 配置 + 自签证书，启动 sing-box 与 cloudflared，并打印节点链接
 # ============================================================================
 set -euo pipefail
 
-WORKDIR="/etc/beijihu"
+WORKDIR="/etc/baihu"
 CONFIG="${WORKDIR}/config.json"
 CERT="${WORKDIR}/cert.pem"
 KEY="${WORKDIR}/key.pem"
 mkdir -p "${WORKDIR}"
 
-log() { printf '\033[1;36m[北极狐]\033[0m %s\n' "$*"; }
-warn() { printf '\033[1;33m[北极狐]\033[0m %s\n' "$*"; }
+log() { printf '\033[1;36m[白狐]\033[0m %s\n' "$*"; }
+warn() { printf '\033[1;33m[白狐]\033[0m %s\n' "$*"; }
 
 # ---------------------------------------------------------------------------
 # 1) 基础参数
@@ -22,7 +22,7 @@ if [ -z "${UUID:-}" ]; then
   warn "未提供 UUID，已自动生成: ${UUID}"
 fi
 TUIC_PASSWORD="${TUIC_PASSWORD:-$UUID}"
-NODE_NAME="${NODE_NAME:-北极狐}"
+NODE_NAME="${NODE_NAME:-白狐}"
 LOG_LEVEL="${LOG_LEVEL:-info}"
 
 VLESS_PATH="${VLESS_PATH:-/vless}"
@@ -132,7 +132,6 @@ else
   cloudflared tunnel --no-autoupdate --loglevel "${LOG_LEVEL}" \
     --url "http://localhost:${VLESS_PORT}" > "${QLOG}" 2>&1 &
   CF_PID=$!
-  # 解析临时域名 (grep 未命中会返回非零，需 || true 以兼容 set -e/pipefail)
   for _ in $(seq 1 30); do
     QUICK_DOMAIN="$(grep -oE 'https://[a-zA-Z0-9.-]+\.trycloudflare\.com' "${QLOG}" 2>/dev/null | head -n1 | sed 's#https://##' || true)"
     [ -n "${QUICK_DOMAIN}" ] && break
@@ -157,7 +156,7 @@ PUBLIC_IP="$(get_public_ip)"
 print_links() {
   local d="${ARGO_DOMAIN:-}"
   echo ""
-  echo "==================== 🦊 北极狐 节点信息 ===================="
+  echo "==================== 🦊 白狐 节点信息 ===================="
   echo " UUID         : ${UUID}"
   echo " TUIC 密码    : ${TUIC_PASSWORD}"
   echo " 隧道域名     : ${d:-<未知，请在面板填写你的隧道域名>}"
@@ -185,7 +184,6 @@ print_links
 term() { warn "收到退出信号，正在停止..."; kill "${SB_PID}" "${CF_PID}" 2>/dev/null || true; }
 trap term TERM INT
 
-# 任一进程退出则容器退出
 wait -n "${SB_PID}" "${CF_PID}"
 EXIT_CODE=$?
 warn "子进程退出 (code=${EXIT_CODE})，正在收尾"
