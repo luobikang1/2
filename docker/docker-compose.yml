@@ -1,0 +1,27 @@
+# ============================================================================
+#  🦊 北极狐 (Arctic Fox) — docker compose
+#  用法:
+#    1. cp .env.example .env  并填写 TUNNEL_TOKEN / UUID
+#    2. docker compose up -d --build
+#    3. docker compose logs -f   查看自动生成的节点链接
+# ============================================================================
+services:
+  beijihu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: beijihu-tuic:latest
+    container_name: beijihu
+    restart: unless-stopped
+    env_file:
+      - .env
+    # TUIC 为 UDP 直连，需要把端口映射出来（WS/Argo 走 cloudflared，无需映射）
+    ports:
+      - "${TUIC_PORT:-443}:${TUIC_PORT:-443}/udp"
+    # cloudflared 需要出网；如使用 IPv6 直连 TUIC 可按需调整
+    networks:
+      - beijihu-net
+
+networks:
+  beijihu-net:
+    driver: bridge

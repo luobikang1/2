@@ -1,0 +1,14 @@
+# 环境与密钥
+docker/.env
+*.env.local
+.env
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 部署缓存
+.wrangler/
+.vercel/
+.netlify/
+node_modules/
