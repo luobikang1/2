@@ -169,6 +169,7 @@
     var params = "encryption=none&type=" + cfg.transport +
       "&security=" + cfg.security +
       "&sni=" + (cfg.sni || cfg.server) +
+      "&fp=randomized" +
       "&alpn=" + encodeURIComponent(cfg.alpn) +
       "&allowInsecure=" + cfg.allowInsecure;
     if (cfg.transport === "ws") params += "&path=" + encodeURIComponent(cfg.path || "/") + "&host=" + (cfg.sni || cfg.server);
@@ -328,15 +329,28 @@
       name: proto.toUpperCase() + "-" + server.split(".")[0],
       transport: "ws",
       security: "tls",
-      path: "/" + uuidv4().slice(0, 8),
+      path: "/" + uuid.slice(0, 8),
       alpn: proto === "tuic" || proto === "hysteria2" ? "h3" : "h2,http/1.1",
       congestion: "bbr",
       allowInsecure: "0"
     };
+
+    // For VLESS on Cloudflare Workers: path should be /{uuid} for best compatibility
+    if (proto === "vless") {
+      cfg.path = "/" + uuid;
+    }
+
     var link = buildLink(cfg);
     nodes.push({ name: cfg.name, link: link, config: cfg });
     persist(); renderNodes();
     toast(t("toast_gen") + cfg.name, "ok");
+
+    // Show UUID reminder for Worker config
+    if (proto === "vless" || proto === "vmess" || proto === "trojan") {
+      setTimeout(function () {
+        toast("UUID: " + uuid + " (" + t("toast_uuid_hint") + ")", "info");
+      }, 2600);
+    }
   }
 
   // ---- Traffic Monitor ----

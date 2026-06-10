@@ -5,6 +5,7 @@
 ## 功能
 
 - **多协议支持**：VLESS（主推）、VMess、Trojan、Hysteria2、TUIC
+- **内置 VLESS 代理**：Cloudflare Pages Functions 自带 VLESS WebSocket 代理，部署即用
 - **一键生成**：输入域名，选择协议，自动配置所有参数
 - **二维码 + 订阅链接**：每个节点自动生成 QR 码，支持 Base64 订阅导入客户端
 - **Cloudflare 代理流量监控**：实时显示已用流量/上限/使用率
@@ -156,6 +157,51 @@ var LOGIN_DOMAIN = "your-domain.com";
 
 ---
 
+## VLESS 代理（节点连通）
+
+本项目内置 VLESS WebSocket 代理功能。部署到 Cloudflare Pages 后，只需设置 `UUID` 环境变量，节点即可连通。
+
+### 连通步骤
+
+1. **部署到 Cloudflare Pages**（见下方部署说明）
+2. **设置环境变量 `UUID`** = 你生成的 UUID（在面板一键生成后会显示）
+3. **绑定自定义域名**（可选，Pages 默认分配 `.pages.dev` 域名也可用）
+4. **在面板中一键生成节点** — UUID 自动填入，域名填你绑定的域名
+5. **客户端导入** — 扫码或复制订阅链接导入 NekoBox / Clash / v2rayN / Shadowrocket
+
+### 工作原理
+
+```
+客户端 (VLESS/WS/TLS)  →  Cloudflare CDN  →  Pages Functions (_middleware.js)  →  目标网站
+```
+
+- `_middleware.js` 拦截非静态请求，验证 VLESS 协议中的 UUID
+- 验证通过后建立 TCP 连接到目标地址
+- 所有流量经过 Cloudflare CDN，享受全球加速
+
+### 环境变量
+
+| 变量名 | 必填 | 说明 |
+|--------|------|------|
+| `UUID` | ✓（代理功能必须） | VLESS 节点的 UUID，生成节点时使用的同一个 UUID |
+| `LOGIN_UUID` | × | 面板登录用的 UUID（可与 UUID 不同） |
+| `LOGIN_DOMAIN` | × | 面板登录用的绑定域名 |
+
+> **重要**：`UUID` 环境变量是代理连通的核心。面板一键生成节点后，把显示的 UUID 设为此环境变量的值。
+
+### 支持的客户端
+
+| 客户端 | 平台 | 推荐 |
+|--------|------|------|
+| v2rayN | Windows | ★★★ |
+| NekoBox / NekoRay | Windows/Android | ★★★ |
+| Clash Verge / Meta | Windows/macOS/Linux | ★★★ |
+| Shadowrocket | iOS | ★★★ |
+| sing-box | 全平台 | ★★★ |
+| Quantumult X | iOS | ★★ |
+
+---
+
 ## 部署
 
 ### Cloudflare Pages（推荐）
@@ -165,10 +211,12 @@ var LOGIN_DOMAIN = "your-domain.com";
 3. 构建设置：
    - 输出目录：`panel`（如果在子目录）或 `/`（如果在根目录）
    - 无需构建命令
-4. （可选）Settings → Environment variables：
-   - `LOGIN_UUID` = 你的 UUID
-   - `LOGIN_DOMAIN` = 你的绑定域名
+4. Settings → Environment variables：
+   - `UUID` = 你的代理 UUID（**必须设置才能连通节点**）
+   - `LOGIN_UUID` = 面板登录 UUID（可选）
+   - `LOGIN_DOMAIN` = 面板登录域名（可选）
 5. Deploy
+6. （可选）Custom domains → 绑定自定义域名
 
 ### Vercel
 
@@ -216,6 +264,7 @@ docker run -d -p 8080:80 \
 │   ├── i18n.js             # 中英文翻译字典
 │   └── qrcode.min.js       # QR 码生成库
 ├── functions/
+│   ├── _middleware.js      # VLESS WebSocket 代理核心（拦截非静态请求）
 │   └── api/
 │       ├── config.js       # GET /api/config — 返回是否需要登录
 │       └── login.js        # POST /api/login — 验证 UUID + 域名
@@ -229,6 +278,22 @@ docker run -d -p 8080:80 \
 ## 技术栈
 
 - 纯 HTML / CSS / JavaScript（零构建）
-- Cloudflare Pages Functions（可选，用于服务端登录验证）
+- Cloudflare Pages Functions（VLESS 代理 + 登录验证）
+- VLESS over WebSocket + TLS（Cloudflare CDN 加速）
 - QR 码：[qrcode.js](https://github.com/davidshimjs/qrcodejs)
 - i18n：`data-i18n` 属性 + 字典
+
+## 常见问题
+
+### 节点无法连通？
+
+1. **检查 UUID**：确保 Cloudflare Pages 环境变量 `UUID` 设置正确，且与客户端节点的 UUID 一致
+2. **检查域名**：节点服务器地址必须是你部署的 Pages 域名（`.pages.dev` 或自定义域名）
+3. **协议选择**：推荐使用 VLESS + WebSocket + TLS（默认配置）
+4. **端口**：Cloudflare 支持的端口为 443（默认）、8443、2053、2083、2087、2096
+5. **路径**：VLESS 节点的 path 填 `/{uuid}`（面板自动生成）
+6. **客户端版本**：确保客户端支持 VLESS 协议（v2rayN 6.x+, NekoBox, Shadowrocket 等）
+
+### Vercel / Netlify 能否代理？
+
+不能。Vercel 和 Netlify 不支持 WebSocket 长连接和 TCP connect，代理功能仅 Cloudflare Pages 支持。其他平台只能使用面板的节点管理功能。

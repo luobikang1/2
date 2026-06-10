@@ -96,6 +96,7 @@ window.TUIC_I18N = {
     toast_no_uuid: "请填写 UUID 或密码",
     toast_no_port: "请填写端口",
     toast_no_domain: "请输入项目域名",
+    toast_uuid_hint: "请在 Worker 环境变量中设置此 UUID",
     empty_nodes: "暂无节点，请在上方添加"
   },
   en: {
@@ -175,6 +176,7 @@ window.TUIC_I18N = {
     deploy_cf1: "Fork repo → Cloudflare Pages → Connect GitHub",
     deploy_cf2: "Output directory: panel",
     deploy_cf3: "(Optional) LOGIN_UUID + LOGIN_DOMAIN env vars for login",
+    toast_uuid_hint: "Set this UUID in Worker environment variables",
     deploy_vercel1: "Import Repo → Root Directory: panel",
     deploy_vercel2: "Framework: Other → Deploy",
     deploy_netlify1: "Publish directory: panel",
