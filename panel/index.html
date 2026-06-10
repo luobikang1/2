@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TUIC Panel — 可视化生成与订阅</title>
-  <meta name="description" content="TUIC 节点可视化面板 — 生成 TUIC 节点链接、二维码与 Base64 订阅链接，支持多平台部署" />
+  <title>Proxy Panel — 多协议节点生成与订阅</title>
+  <meta name="description" content="多协议代理节点可视化面板 — VLESS/VMess/Trojan/Hysteria2/TUIC 节点生成、二维码与订阅链接" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%A1%3C/text%3E%3C/svg%3E" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
@@ -24,45 +24,101 @@
     </div>
   </div>
 
-  <!-- Main App (hidden when locked) -->
+  <!-- Main App -->
   <div id="appMain">
     <header class="hero">
       <div class="topbar">
         <button type="button" id="langToggle" class="icon-btn" title="English / 中文">EN / 中</button>
       </div>
-      <h1>TUIC Panel</h1>
-      <p class="tagline" data-i18n="tagline">绑定域名即可代理 · 二维码 · 订阅链接</p>
-      <p class="hint" data-i18n="hint">绑定项目域名 → 一键生成 TUIC 代理节点 → 扫码或订阅即用</p>
+      <h1>Proxy Panel</h1>
+      <p class="tagline" data-i18n="tagline">多协议代理节点生成 · VLESS / VMess / Trojan / Hysteria2 / TUIC</p>
+      <p class="hint" data-i18n="hint">绑定域名 → 一键生成代理节点 → 扫码或订阅即用</p>
     </header>
 
     <main class="container">
+      <!-- Traffic Monitor -->
+      <section class="card traffic-card">
+        <h2 data-i18n="traffic_title">Cloudflare 代理流量</h2>
+        <div class="traffic-row">
+          <div class="traffic-stat">
+            <span class="traffic-label" data-i18n="traffic_used">已用流量</span>
+            <div class="traffic-value">
+              <input type="number" id="trafficUsed" min="0" step="0.01" value="0" />
+              <select id="trafficUnit">
+                <option value="MB">MB</option>
+                <option value="GB" selected>GB</option>
+                <option value="TB">TB</option>
+              </select>
+            </div>
+          </div>
+          <div class="traffic-stat">
+            <span class="traffic-label" data-i18n="traffic_limit">流量上限</span>
+            <div class="traffic-value">
+              <input type="number" id="trafficLimit" min="0" step="1" value="100" />
+              <select id="trafficLimitUnit">
+                <option value="MB">MB</option>
+                <option value="GB" selected>GB</option>
+                <option value="TB">TB</option>
+              </select>
+            </div>
+          </div>
+          <div class="traffic-stat">
+            <span class="traffic-label" data-i18n="traffic_percent">使用率</span>
+            <span class="traffic-pct" id="trafficPct">0%</span>
+          </div>
+        </div>
+        <div class="traffic-bar-wrap">
+          <div class="traffic-bar" id="trafficBar"></div>
+        </div>
+        <small class="traffic-hint" data-i18n="traffic_hint">Cloudflare Workers 免费版无带宽限制，付费版按用量计费。在此跟踪你的代理流量消耗。</small>
+      </section>
+
       <!-- Quick Generate -->
       <section class="card quick-card">
         <h2 data-i18n="quick_title">一键生成代理节点</h2>
-        <p class="quick-desc" data-i18n="quick_desc">只需输入绑定到项目的域名，即可生成可用的 TUIC VPN 代理节点 — 无需其他配置</p>
+        <p class="quick-desc" data-i18n="quick_desc">输入域名，选择协议，一键生成可用代理节点 — 无需手动配置</p>
         <div class="quick-row">
           <label class="field quick-field">
             <span data-i18n="quick_domain">项目域名 *</span>
-            <input id="quickServer" type="text" data-i18n-placeholder="quick_placeholder" placeholder="输入绑定到项目的域名（如 node.example.com）" autocomplete="off" />
+            <input id="quickServer" type="text" data-i18n-placeholder="quick_placeholder" placeholder="输入绑定到项目的域名" autocomplete="off" />
           </label>
-          <button type="button" id="quickGen" class="primary quick-btn" data-i18n="quick_btn">一键生成代理</button>
+          <label class="field quick-proto-field">
+            <span data-i18n="quick_protocol">协议</span>
+            <select id="quickProto">
+              <option value="vless" selected>VLESS</option>
+              <option value="vmess">VMess</option>
+              <option value="trojan">Trojan</option>
+              <option value="hysteria2">Hysteria2</option>
+              <option value="tuic">TUIC</option>
+            </select>
+          </label>
+          <button type="button" id="quickGen" class="primary quick-btn" data-i18n="quick_btn">一键生成</button>
         </div>
         <div class="quick-steps">
           <p class="step-title" data-i18n="steps_title">使用步骤：</p>
           <ol>
-            <li data-i18n="step1">将域名绑定到 Cloudflare 项目</li>
-            <li data-i18n="step2">在上方输入该域名</li>
-            <li data-i18n="step3">点击「一键生成代理」获取节点</li>
+            <li data-i18n="step1">将域名绑定到 Cloudflare 项目（或其他部署平台）</li>
+            <li data-i18n="step2">选择协议类型（推荐 VLESS）</li>
+            <li data-i18n="step3">点击「一键生成」获取节点</li>
             <li data-i18n="step4">扫描二维码或复制订阅链接导入客户端</li>
           </ol>
         </div>
-        <small class="quick-hint" data-i18n="quick_auto">自动配置：端口 443 / BBR 拥塞控制 / h3 ALPN / 随机 UUID / TLS 加密</small>
       </section>
 
-      <!-- Node Form -->
+      <!-- Custom Node Form -->
       <section class="card form-card">
         <h2 data-i18n="custom_title">自定义配置</h2>
         <div class="grid">
+          <label class="field">
+            <span data-i18n="field_proto">协议类型 *</span>
+            <select id="protocol">
+              <option value="vless" selected>VLESS</option>
+              <option value="vmess">VMess</option>
+              <option value="trojan">Trojan</option>
+              <option value="hysteria2">Hysteria2</option>
+              <option value="tuic">TUIC</option>
+            </select>
+          </label>
           <label class="field">
             <span data-i18n="field_server">服务器地址 *</span>
             <input id="server" type="text" data-i18n-placeholder="ph_server" placeholder="example.com 或 IP" autocomplete="off" />
@@ -72,30 +128,55 @@
             <input id="port" type="text" value="443" autocomplete="off" />
           </label>
           <label class="field">
-            <span data-i18n="field_uuid">UUID *</span>
+            <span data-i18n="field_uuid">UUID / 密码 *</span>
             <span class="with-btn">
-              <input id="uuid" type="text" data-i18n-placeholder="ph_uuid" placeholder="点击右侧按钮生成" autocomplete="off" />
+              <input id="uuid" type="text" data-i18n-placeholder="ph_uuid" placeholder="点击生成 UUID 或输入密码" autocomplete="off" />
               <button type="button" id="genUuid" class="mini" title="Random UUID">🎲</button>
             </span>
           </label>
           <label class="field">
-            <span data-i18n="field_pass">密码</span>
-            <input id="password" type="text" data-i18n-placeholder="ph_pass" placeholder="留空 = 使用 UUID" autocomplete="off" />
-          </label>
-          <label class="field">
-            <span>SNI</span>
+            <span>SNI / Host</span>
             <input id="sni" type="text" data-i18n-placeholder="ph_sni" placeholder="留空 = 使用服务器地址" autocomplete="off" />
           </label>
           <label class="field">
             <span data-i18n="field_name">节点名称</span>
-            <input id="nodeName" type="text" value="TUIC-Node" autocomplete="off" />
+            <input id="nodeName" type="text" value="Proxy-Node" autocomplete="off" />
           </label>
         </div>
 
         <details class="advanced">
-          <summary data-i18n="advanced_title">高级选项（拥塞控制 / ALPN / 安全设置）</summary>
+          <summary data-i18n="advanced_title">高级选项</summary>
           <div class="grid">
             <label class="field">
+              <span data-i18n="field_transport">传输层</span>
+              <select id="transport">
+                <option value="ws" selected>WebSocket</option>
+                <option value="grpc">gRPC</option>
+                <option value="tcp">TCP / Raw</option>
+                <option value="h2">HTTP/2</option>
+              </select>
+            </label>
+            <label class="field">
+              <span data-i18n="field_security">TLS</span>
+              <select id="security">
+                <option value="tls" selected>TLS</option>
+                <option value="reality">Reality</option>
+                <option value="none">None</option>
+              </select>
+            </label>
+            <label class="field">
+              <span data-i18n="field_path">Path / ServiceName</span>
+              <input id="wsPath" type="text" placeholder="/" autocomplete="off" />
+            </label>
+            <label class="field">
+              <span>ALPN</span>
+              <select id="alpn">
+                <option value="h2,http/1.1" selected>h2, http/1.1</option>
+                <option value="h3">h3</option>
+                <option value="h2">h2</option>
+              </select>
+            </label>
+            <label class="field" id="congestionField">
               <span data-i18n="field_congestion">拥塞控制</span>
               <select id="congestion">
                 <option value="bbr" selected>BBR</option>
@@ -104,32 +185,17 @@
               </select>
             </label>
             <label class="field">
-              <span>ALPN</span>
-              <select id="alpn">
-                <option value="h3" selected>h3</option>
-                <option value="h3,spdy/3.1">h3, spdy/3.1</option>
-                <option value="h2">h2</option>
-              </select>
-            </label>
-            <label class="field">
-              <span>UDP Relay Mode</span>
-              <select id="udpRelay">
-                <option value="native" selected>native</option>
-                <option value="quic">quic</option>
-              </select>
-            </label>
-            <label class="field">
-              <span data-i18n="field_insecure">允许不安全证书</span>
+              <span data-i18n="field_insecure">允许不安全</span>
               <select id="allowInsecure">
-                <option value="0" data-i18n="no">否</option>
-                <option value="1" selected data-i18n="yes">是</option>
+                <option value="0">No</option>
+                <option value="1" selected>Yes</option>
               </select>
             </label>
           </div>
         </details>
 
         <div class="actions">
-          <button type="button" id="addNode" class="primary" data-i18n="btn_add">添加自定义节点</button>
+          <button type="button" id="addNode" class="primary" data-i18n="btn_add">添加节点</button>
           <button type="button" id="clearAll" class="ghost" data-i18n="btn_clear">清空所有</button>
         </div>
       </section>
@@ -147,8 +213,8 @@
           </label>
         </div>
         <div class="sub-actions">
-          <button type="button" id="copySubBtn" class="primary" data-i18n="btn_copy_sub">复制订阅链接</button>
-          <button type="button" id="copyAllLinks" class="ghost" data-i18n="btn_copy_all">复制全部节点链接</button>
+          <button type="button" id="copySubBtn" class="primary" data-i18n="btn_copy_sub">复制订阅</button>
+          <button type="button" id="copyAllLinks" class="ghost" data-i18n="btn_copy_all">复制全部链接</button>
         </div>
       </section>
 
@@ -158,126 +224,81 @@
       <!-- Cloudflare Free Tier Usage -->
       <section class="card cf-card">
         <h2 data-i18n="cf_title">Cloudflare 免费套餐用量</h2>
-        <p class="cf-desc" data-i18n="cf_desc">输入当前使用量，图表直观显示免费额度消耗情况</p>
-
+        <p class="cf-desc" data-i18n="cf_desc">输入当前使用量，图表显示免费额度消耗</p>
         <div class="cf-grid" id="cfGrid">
           <div class="cf-item">
-            <div class="cf-item-head">
-              <span class="cf-label" data-i18n="cf_pages">Pages 构建次数</span>
-              <span class="cf-limit">/ 500</span>
-            </div>
+            <div class="cf-item-head"><span class="cf-label" data-i18n="cf_pages">Pages 构建</span><span class="cf-limit">/ 500</span></div>
             <div class="cf-bar-wrap"><div class="cf-bar" id="cfBarPages"></div></div>
-            <div class="cf-input-row">
-              <input type="number" id="cfPages" min="0" max="500" value="0" />
-            </div>
+            <div class="cf-input-row"><input type="number" id="cfPages" min="0" max="500" value="0" /></div>
           </div>
           <div class="cf-item">
-            <div class="cf-item-head">
-              <span class="cf-label" data-i18n="cf_workers">Workers 请求</span>
-              <span class="cf-limit">/ 100K/day</span>
-            </div>
+            <div class="cf-item-head"><span class="cf-label" data-i18n="cf_workers">Workers 请求</span><span class="cf-limit">/ 100K/d</span></div>
             <div class="cf-bar-wrap"><div class="cf-bar" id="cfBarWorkers"></div></div>
-            <div class="cf-input-row">
-              <input type="number" id="cfWorkers" min="0" max="100000" value="0" />
-            </div>
+            <div class="cf-input-row"><input type="number" id="cfWorkers" min="0" max="100000" value="0" /></div>
           </div>
           <div class="cf-item">
-            <div class="cf-item-head">
-              <span class="cf-label" data-i18n="cf_kv_read">KV 读取</span>
-              <span class="cf-limit">/ 100K/day</span>
-            </div>
+            <div class="cf-item-head"><span class="cf-label" data-i18n="cf_kv_read">KV 读取</span><span class="cf-limit">/ 100K/d</span></div>
             <div class="cf-bar-wrap"><div class="cf-bar" id="cfBarKvRead"></div></div>
-            <div class="cf-input-row">
-              <input type="number" id="cfKvRead" min="0" max="100000" value="0" />
-            </div>
+            <div class="cf-input-row"><input type="number" id="cfKvRead" min="0" max="100000" value="0" /></div>
           </div>
           <div class="cf-item">
-            <div class="cf-item-head">
-              <span class="cf-label" data-i18n="cf_kv_write">KV 写入</span>
-              <span class="cf-limit">/ 1K/day</span>
-            </div>
+            <div class="cf-item-head"><span class="cf-label" data-i18n="cf_kv_write">KV 写入</span><span class="cf-limit">/ 1K/d</span></div>
             <div class="cf-bar-wrap"><div class="cf-bar" id="cfBarKvWrite"></div></div>
-            <div class="cf-input-row">
-              <input type="number" id="cfKvWrite" min="0" max="1000" value="0" />
-            </div>
+            <div class="cf-input-row"><input type="number" id="cfKvWrite" min="0" max="1000" value="0" /></div>
           </div>
           <div class="cf-item">
-            <div class="cf-item-head">
-              <span class="cf-label" data-i18n="cf_r2">R2 存储</span>
-              <span class="cf-limit">/ 10 GB</span>
-            </div>
+            <div class="cf-item-head"><span class="cf-label" data-i18n="cf_r2">R2 存储</span><span class="cf-limit">/ 10 GB</span></div>
             <div class="cf-bar-wrap"><div class="cf-bar" id="cfBarR2"></div></div>
-            <div class="cf-input-row">
-              <input type="number" id="cfR2" min="0" max="10" step="0.1" value="0" />
-            </div>
+            <div class="cf-input-row"><input type="number" id="cfR2" min="0" max="10" step="0.1" value="0" /></div>
           </div>
           <div class="cf-item">
-            <div class="cf-item-head">
-              <span class="cf-label" data-i18n="cf_r2a">R2 A 类操作</span>
-              <span class="cf-limit">/ 1M/mo</span>
-            </div>
+            <div class="cf-item-head"><span class="cf-label" data-i18n="cf_r2a">R2 A 类</span><span class="cf-limit">/ 1M/mo</span></div>
             <div class="cf-bar-wrap"><div class="cf-bar" id="cfBarR2A"></div></div>
-            <div class="cf-input-row">
-              <input type="number" id="cfR2A" min="0" max="1000000" value="0" />
-            </div>
+            <div class="cf-input-row"><input type="number" id="cfR2A" min="0" max="1000000" value="0" /></div>
           </div>
           <div class="cf-item">
-            <div class="cf-item-head">
-              <span class="cf-label" data-i18n="cf_r2b">R2 B 类操作</span>
-              <span class="cf-limit">/ 10M/mo</span>
-            </div>
+            <div class="cf-item-head"><span class="cf-label" data-i18n="cf_r2b">R2 B 类</span><span class="cf-limit">/ 10M/mo</span></div>
             <div class="cf-bar-wrap"><div class="cf-bar" id="cfBarR2B"></div></div>
-            <div class="cf-input-row">
-              <input type="number" id="cfR2B" min="0" max="10000000" value="0" />
-            </div>
+            <div class="cf-input-row"><input type="number" id="cfR2B" min="0" max="10000000" value="0" /></div>
           </div>
           <div class="cf-item">
-            <div class="cf-item-head">
-              <span class="cf-label" data-i18n="cf_d1">D1 行读取</span>
-              <span class="cf-limit">/ 5M/day</span>
-            </div>
+            <div class="cf-item-head"><span class="cf-label" data-i18n="cf_d1">D1 行读</span><span class="cf-limit">/ 5M/d</span></div>
             <div class="cf-bar-wrap"><div class="cf-bar" id="cfBarD1"></div></div>
-            <div class="cf-input-row">
-              <input type="number" id="cfD1" min="0" max="5000000" value="0" />
-            </div>
+            <div class="cf-input-row"><input type="number" id="cfD1" min="0" max="5000000" value="0" /></div>
           </div>
         </div>
-
         <div class="cf-actions">
-          <button type="button" id="cfUpdate" class="primary" data-i18n="cf_refresh">刷新图表</button>
-          <button type="button" id="cfReset" class="ghost" data-i18n="cf_reset">重置数据</button>
+          <button type="button" id="cfUpdate" class="primary" data-i18n="cf_refresh">刷新</button>
+          <button type="button" id="cfReset" class="ghost" data-i18n="cf_reset">重置</button>
         </div>
       </section>
 
       <!-- Usage Guide -->
       <section class="card guide-card">
         <h2 data-i18n="guide_title">使用说明</h2>
-        <div class="guide-content" id="guideContent">
+        <div class="guide-content">
           <div class="guide-block">
-            <h3 data-i18n="guide_what">什么是 TUIC？</h3>
-            <p data-i18n="guide_what_desc">TUIC 是基于 QUIC 协议的代理工具，具有低延迟、抗丢包、支持 UDP 的优势，适合网络环境不稳定的场景。</p>
+            <h3 data-i18n="guide_what">支持的协议</h3>
+            <ul>
+              <li><strong>VLESS</strong> <span data-i18n="guide_vless">— 轻量高效，Cloudflare Workers 首选，支持 WebSocket + TLS</span></li>
+              <li><strong>VMess</strong> <span data-i18n="guide_vmess">— V2Ray 经典协议，广泛客户端支持</span></li>
+              <li><strong>Trojan</strong> <span data-i18n="guide_trojan">— 伪装 HTTPS 流量，简单高效</span></li>
+              <li><strong>Hysteria2</strong> <span data-i18n="guide_hy2">— 基于 QUIC，极速低延迟</span></li>
+              <li><strong>TUIC</strong> <span data-i18n="guide_tuic">— QUIC 代理，抗丢包优秀</span></li>
+            </ul>
           </div>
           <div class="guide-block">
             <h3 data-i18n="guide_how">如何使用？</h3>
             <ol>
-              <li data-i18n="guide_step1">部署本面板到 Cloudflare Pages（或其他平台）</li>
-              <li data-i18n="guide_step2">将你的域名绑定到项目</li>
-              <li data-i18n="guide_step3">在面板中输入域名，一键生成节点</li>
-              <li data-i18n="guide_step4">将生成的订阅链接或二维码导入客户端（如 NekoBox、Clash、Sing-Box）</li>
+              <li data-i18n="guide_step1">部署本面板到支持的平台</li>
+              <li data-i18n="guide_step2">绑定域名到项目</li>
+              <li data-i18n="guide_step3">选择协议，输入域名，一键生成</li>
+              <li data-i18n="guide_step4">导入客户端（NekoBox / Clash / sing-box / Shadowrocket）</li>
             </ol>
           </div>
           <div class="guide-block">
             <h3 data-i18n="guide_password">密码保护</h3>
-            <p data-i18n="guide_password_desc">部署时设置环境变量 PANEL_PASS（或在 js/app.js 中修改 PANEL_PASSWORD），面板将要求输入密码才能访问。也可通过 URL 参数 ?pass=xxx 自动解锁。留空则不启用密码。</p>
-          </div>
-          <div class="guide-block">
-            <h3 data-i18n="guide_clients">推荐客户端</h3>
-            <ul>
-              <li><strong>Android:</strong> NekoBox, sing-box</li>
-              <li><strong>iOS:</strong> Stash, Shadowrocket</li>
-              <li><strong>Windows:</strong> NekoRay, Clash Verge</li>
-              <li><strong>macOS:</strong> Clash Verge, sing-box</li>
-            </ul>
+            <p data-i18n="guide_password_desc">在 js/app.js 中设置 PANEL_PASSWORD 变量，或通过 URL 参数 ?pass=xxx 自动解锁。留空不启用。</p>
           </div>
         </div>
       </section>
@@ -290,57 +311,36 @@
             <h3>Cloudflare Pages</h3>
             <p data-i18n="deploy_cf_desc">推荐 — 免费、全球 CDN、自动 HTTPS</p>
             <ol>
-              <li data-i18n="deploy_cf1">Fork 本仓库到你的 GitHub</li>
-              <li data-i18n="deploy_cf2">Cloudflare Dashboard → Pages → 连接 GitHub</li>
-              <li data-i18n="deploy_cf3">构建命令留空，输出目录填 <code>panel</code></li>
-              <li data-i18n="deploy_cf4">（可选）环境变量添加 PANEL_PASS 设置访问密码</li>
+              <li data-i18n="deploy_cf1">Fork 仓库 → Cloudflare Pages → 连接 GitHub</li>
+              <li data-i18n="deploy_cf2">输出目录: <code>panel</code></li>
+              <li data-i18n="deploy_cf3">（可选）环境变量 PANEL_PASS 设密码</li>
             </ol>
           </div>
           <div class="deploy-item">
             <h3>Vercel</h3>
-            <p data-i18n="deploy_vercel_desc">一键导入 GitHub 仓库部署</p>
             <ol>
-              <li data-i18n="deploy_vercel1">Import Git Repository → 选择本仓库</li>
-              <li data-i18n="deploy_vercel2">Root Directory 设为 <code>panel</code></li>
-              <li data-i18n="deploy_vercel3">Framework Preset 选 Other，直接部署</li>
+              <li data-i18n="deploy_vercel1">Import Repo → Root Directory: <code>panel</code></li>
+              <li data-i18n="deploy_vercel2">Framework: Other → Deploy</li>
             </ol>
           </div>
           <div class="deploy-item">
-            <h3>Netlify</h3>
-            <p data-i18n="deploy_netlify_desc">拖拽上传或连接仓库</p>
+            <h3>Netlify / GitHub Pages</h3>
             <ol>
-              <li data-i18n="deploy_netlify1">拖拽 panel/ 文件夹到 Netlify Drop</li>
-              <li data-i18n="deploy_netlify2">或连接 GitHub，Publish directory 填 <code>panel</code></li>
-            </ol>
-          </div>
-          <div class="deploy-item">
-            <h3>GitHub Pages</h3>
-            <p data-i18n="deploy_gh_desc">免费静态托管</p>
-            <ol>
-              <li data-i18n="deploy_gh1">Settings → Pages → Source → GitHub Actions</li>
-              <li data-i18n="deploy_gh2">或设置 Branch: main, folder: /panel</li>
+              <li data-i18n="deploy_netlify1">Publish directory: <code>panel</code></li>
             </ol>
           </div>
           <div class="deploy-item">
             <h3>Docker</h3>
-            <p data-i18n="deploy_docker_desc">容器化部署，可配合反向代理</p>
             <pre class="code-block">docker run -d -p 8080:80 \
-  -v $(pwd)/panel:/usr/share/nginx/html:ro \
+  -v ./panel:/usr/share/nginx/html:ro \
   nginx:alpine</pre>
-          </div>
-          <div class="deploy-item">
-            <h3 data-i18n="deploy_manual">手动部署</h3>
-            <p data-i18n="deploy_manual_desc">纯静态文件，上传到任何 Web 服务器即可</p>
-            <pre class="code-block">git clone https://github.com/luobikang1/2.git
-cd 2/panel
-# 上传至你的服务器 /var/www/html</pre>
           </div>
         </div>
       </section>
     </main>
 
     <footer class="footer">
-      <p data-i18n="footer">TUIC Panel · 纯前端生成，数据不离开浏览器 · 支持多平台部署</p>
+      <p data-i18n="footer">Proxy Panel · 纯前端，数据不离开浏览器 · 支持多平台部署</p>
     </footer>
   </div>
 
