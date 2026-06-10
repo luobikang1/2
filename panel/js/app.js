@@ -93,6 +93,7 @@
     $("lockScreen").style.display = "none";
     $("appMain").style.display = "";
     try { sessionStorage.setItem(AUTH_KEY, "1"); } catch (e) {}
+    initAvailableNode();
   }
 
   function showLock() {
@@ -562,7 +563,6 @@
     applyI18n();
     restore();
     renderNodes();
-    initAvailableNode();
 
     // Language
     $("langToggle").addEventListener("click", function () {

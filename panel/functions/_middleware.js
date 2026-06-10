@@ -42,7 +42,9 @@ async function handleVlessWs(request, userUuid) {
 
   let headerParsed = false;
   let remoteSocket = null;
+  let remoteReady = false;
   let buffer = new Uint8Array(0);
+  let pendingData = []; // buffer messages arriving before remote is connected
 
   server.addEventListener("message", async (event) => {
     const data = new Uint8Array(event.data);
@@ -71,7 +73,14 @@ async function handleVlessWs(request, userUuid) {
         if (parsed.payload.length > 0) {
           await writer.write(parsed.payload);
         }
+
+        // Flush any messages that arrived during connection setup
+        for (const chunk of pendingData) {
+          await writer.write(chunk);
+        }
+        pendingData = [];
         writer.releaseLock();
+        remoteReady = true;
 
         // Pipe remote -> client
         pipeRemoteToWs(remoteSocket.readable, server);
@@ -79,11 +88,13 @@ async function handleVlessWs(request, userUuid) {
         server.close(1011, "Remote connection failed");
       }
     } else {
-      // Forward data to remote
-      if (remoteSocket) {
+      // Forward data to remote (buffer if not yet ready)
+      if (remoteReady && remoteSocket) {
         const writer = remoteSocket.writable.getWriter();
         await writer.write(data);
         writer.releaseLock();
+      } else {
+        pendingData.push(data);
       }
     }
   });
