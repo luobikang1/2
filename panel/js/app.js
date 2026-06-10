@@ -271,6 +271,75 @@
         if (e.key === "Enter") { e.preventDefault(); addNode(); }
       });
     });
+
+    // Cloudflare usage dashboard
+    initCfDashboard();
+  }
+
+  // ---- Cloudflare Free Tier Usage Dashboard ----
+  var CF_STORAGE_KEY = "tuic-panel-cf-usage-v1";
+
+  var cfItems = [
+    { id: "Pages", inputId: "cfPages", barId: "cfBarPages", max: 500 },
+    { id: "Workers", inputId: "cfWorkers", barId: "cfBarWorkers", max: 100000 },
+    { id: "KvRead", inputId: "cfKvRead", barId: "cfBarKvRead", max: 100000 },
+    { id: "KvWrite", inputId: "cfKvWrite", barId: "cfBarKvWrite", max: 1000 },
+    { id: "R2", inputId: "cfR2", barId: "cfBarR2", max: 10 },
+    { id: "R2A", inputId: "cfR2A", barId: "cfBarR2A", max: 1000000 },
+    { id: "R2B", inputId: "cfR2B", barId: "cfBarR2B", max: 10000000 },
+    { id: "D1", inputId: "cfD1", barId: "cfBarD1", max: 5000000 }
+  ];
+
+  function updateCfBars() {
+    var data = {};
+    cfItems.forEach(function (item) {
+      var input = $(item.inputId);
+      var bar = $(item.barId);
+      var val = parseFloat(input.value) || 0;
+      var pct = Math.min((val / item.max) * 100, 100);
+
+      bar.style.width = pct + "%";
+      bar.className = "cf-bar";
+      if (pct >= 90) bar.classList.add("danger");
+      else if (pct >= 70) bar.classList.add("warn");
+
+      data[item.id] = val;
+    });
+    try { localStorage.setItem(CF_STORAGE_KEY, JSON.stringify(data)); } catch (e) {}
+  }
+
+  function restoreCfData() {
+    try {
+      var data = JSON.parse(localStorage.getItem(CF_STORAGE_KEY) || "{}");
+      cfItems.forEach(function (item) {
+        if (data[item.id] != null) {
+          $(item.inputId).value = data[item.id];
+        }
+      });
+    } catch (e) {}
+  }
+
+  function initCfDashboard() {
+    restoreCfData();
+    updateCfBars();
+
+    $("cfUpdate").addEventListener("click", function () {
+      updateCfBars();
+      toast("图表已刷新", "ok");
+    });
+
+    $("cfReset").addEventListener("click", function () {
+      cfItems.forEach(function (item) {
+        $(item.inputId).value = 0;
+      });
+      updateCfBars();
+      toast("用量数据已重置", "ok");
+    });
+
+    // Live update on input change
+    cfItems.forEach(function (item) {
+      $(item.inputId).addEventListener("input", updateCfBars);
+    });
   }
 
   if (document.readyState === "loading") {

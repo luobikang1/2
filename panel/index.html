@@ -133,6 +133,139 @@
 
     <!-- Nodes Output -->
     <section id="nodesOutput" class="nodes-grid" aria-live="polite"></section>
+
+    <!-- Cloudflare Free Tier Usage -->
+    <section class="card cf-card">
+      <h2>Cloudflare 免费套餐用量</h2>
+      <p class="cf-desc">输入当前使用量，图表直观显示免费额度消耗情况</p>
+
+      <div class="cf-grid" id="cfGrid">
+        <!-- Pages -->
+        <div class="cf-item">
+          <div class="cf-item-head">
+            <span class="cf-label">Pages 构建次数</span>
+            <span class="cf-limit">/ 500 次/月</span>
+          </div>
+          <div class="cf-bar-wrap">
+            <div class="cf-bar" id="cfBarPages"></div>
+          </div>
+          <div class="cf-input-row">
+            <input type="number" id="cfPages" min="0" max="500" value="0" />
+            <span class="cf-unit">次</span>
+          </div>
+        </div>
+
+        <!-- Workers Requests -->
+        <div class="cf-item">
+          <div class="cf-item-head">
+            <span class="cf-label">Workers 请求数</span>
+            <span class="cf-limit">/ 100,000 次/天</span>
+          </div>
+          <div class="cf-bar-wrap">
+            <div class="cf-bar" id="cfBarWorkers"></div>
+          </div>
+          <div class="cf-input-row">
+            <input type="number" id="cfWorkers" min="0" max="100000" value="0" />
+            <span class="cf-unit">次</span>
+          </div>
+        </div>
+
+        <!-- KV Reads -->
+        <div class="cf-item">
+          <div class="cf-item-head">
+            <span class="cf-label">KV 读取</span>
+            <span class="cf-limit">/ 100,000 次/天</span>
+          </div>
+          <div class="cf-bar-wrap">
+            <div class="cf-bar" id="cfBarKvRead"></div>
+          </div>
+          <div class="cf-input-row">
+            <input type="number" id="cfKvRead" min="0" max="100000" value="0" />
+            <span class="cf-unit">次</span>
+          </div>
+        </div>
+
+        <!-- KV Writes -->
+        <div class="cf-item">
+          <div class="cf-item-head">
+            <span class="cf-label">KV 写入</span>
+            <span class="cf-limit">/ 1,000 次/天</span>
+          </div>
+          <div class="cf-bar-wrap">
+            <div class="cf-bar" id="cfBarKvWrite"></div>
+          </div>
+          <div class="cf-input-row">
+            <input type="number" id="cfKvWrite" min="0" max="1000" value="0" />
+            <span class="cf-unit">次</span>
+          </div>
+        </div>
+
+        <!-- R2 Storage -->
+        <div class="cf-item">
+          <div class="cf-item-head">
+            <span class="cf-label">R2 存储</span>
+            <span class="cf-limit">/ 10 GB</span>
+          </div>
+          <div class="cf-bar-wrap">
+            <div class="cf-bar" id="cfBarR2"></div>
+          </div>
+          <div class="cf-input-row">
+            <input type="number" id="cfR2" min="0" max="10" step="0.1" value="0" />
+            <span class="cf-unit">GB</span>
+          </div>
+        </div>
+
+        <!-- R2 Class A -->
+        <div class="cf-item">
+          <div class="cf-item-head">
+            <span class="cf-label">R2 A 类操作</span>
+            <span class="cf-limit">/ 1,000,000 次/月</span>
+          </div>
+          <div class="cf-bar-wrap">
+            <div class="cf-bar" id="cfBarR2A"></div>
+          </div>
+          <div class="cf-input-row">
+            <input type="number" id="cfR2A" min="0" max="1000000" value="0" />
+            <span class="cf-unit">次</span>
+          </div>
+        </div>
+
+        <!-- R2 Class B -->
+        <div class="cf-item">
+          <div class="cf-item-head">
+            <span class="cf-label">R2 B 类操作</span>
+            <span class="cf-limit">/ 10,000,000 次/月</span>
+          </div>
+          <div class="cf-bar-wrap">
+            <div class="cf-bar" id="cfBarR2B"></div>
+          </div>
+          <div class="cf-input-row">
+            <input type="number" id="cfR2B" min="0" max="10000000" value="0" />
+            <span class="cf-unit">次</span>
+          </div>
+        </div>
+
+        <!-- D1 Database -->
+        <div class="cf-item">
+          <div class="cf-item-head">
+            <span class="cf-label">D1 数据库行读取</span>
+            <span class="cf-limit">/ 5,000,000 行/天</span>
+          </div>
+          <div class="cf-bar-wrap">
+            <div class="cf-bar" id="cfBarD1"></div>
+          </div>
+          <div class="cf-input-row">
+            <input type="number" id="cfD1" min="0" max="5000000" value="0" />
+            <span class="cf-unit">行</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="cf-actions">
+        <button type="button" id="cfUpdate" class="primary">刷新图表</button>
+        <button type="button" id="cfReset" class="ghost">重置数据</button>
+      </div>
+    </section>
   </main>
 
   <footer class="footer">
