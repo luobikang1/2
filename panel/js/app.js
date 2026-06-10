@@ -90,13 +90,13 @@
 
   // ---- Login (UUID + Domain) ----
   function showApp() {
-    $("lockScreen").hidden = true;
+    $("lockScreen").style.display = "none";
     $("appMain").style.display = "";
     try { sessionStorage.setItem(AUTH_KEY, "1"); } catch (e) {}
   }
 
   function showLock() {
-    $("lockScreen").hidden = false;
+    $("lockScreen").style.display = "";
     $("appMain").style.display = "none";
   }
 
