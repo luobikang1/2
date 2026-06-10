@@ -6,12 +6,16 @@
   "use strict";
 
   // ============================================================
-  // CONFIG: Client-side password fallback (used when no server-side
-  // Functions/KV/D1 are available). Leave "" to disable.
-  // For production, set PANEL_PASS env variable on Cloudflare Pages,
-  // or use KV binding PANEL_KV, or D1 binding PANEL_DB instead.
+  // CONFIG: Login credentials — set UUID and DOMAIN to enable login.
+  // Both must be non-empty to require login. Leave empty to skip login.
+  // For Cloudflare Pages deployment, set environment variables:
+  //   LOGIN_UUID = your-uuid
+  //   LOGIN_DOMAIN = your-domain.com
+  // The Pages Function will validate these server-side.
+  // For static deployment, set them here as client-side fallback.
   // ============================================================
-  var PANEL_PASSWORD = "";
+  var LOGIN_UUID = "";
+  var LOGIN_DOMAIN = "";
 
   var STORAGE_KEY = "proxy-panel-nodes-v2";
   var LANG_KEY = "proxy-panel-lang";
@@ -84,7 +88,7 @@
   function escHtml(s) { var d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
   function escAttr(s) { return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 
-  // ---- Password (Server-side D1/KV/env + client-side fallback) ----
+  // ---- Login (UUID + Domain) ----
   function showApp() {
     $("lockScreen").hidden = true;
     $("appMain").style.display = "";
@@ -97,12 +101,13 @@
   }
 
   function initLock() {
-    // Already authed this session
+    // Already logged in this session
     if (sessionStorage.getItem(AUTH_KEY) === "1") { showApp(); return; }
 
-    // URL param auto-unlock (works for both modes)
+    // URL param auto-login: ?uuid=xxx&domain=yyy
     var params = new URLSearchParams(window.location.search);
-    var urlPass = params.get("pass") || "";
+    var urlUuid = (params.get("uuid") || "").trim();
+    var urlDomain = (params.get("domain") || "").trim();
 
     // Try server-side auth first (Cloudflare Pages Functions)
     fetch("/api/config").then(function (res) {
@@ -110,49 +115,53 @@
       return res.json();
     }).then(function (cfg) {
       if (!cfg.protected) { showApp(); return; }
-      // Server says protected — try URL param
-      if (urlPass) {
-        return fetch("/api/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password: urlPass })
-        }).then(function (r) { return r.json(); }).then(function (d) {
-          if (d.ok) { showApp(); } else { showLock(); bindLockEvents(true); }
+      // Server says protected — try URL params
+      if (urlUuid && urlDomain) {
+        return serverLogin(urlUuid, urlDomain).then(function (ok) {
+          if (ok) { showApp(); } else { showLock(); bindLockEvents(true); }
         });
       }
       showLock();
       bindLockEvents(true);
     }).catch(function () {
-      // No server API available — use client-side fallback
-      var pw = PANEL_PASSWORD || "";
-      if (!pw) { showApp(); return; }
-      if (urlPass === pw) { showApp(); return; }
+      // No server API — use client-side fallback
+      if (!LOGIN_UUID && !LOGIN_DOMAIN) { showApp(); return; }
+      if (urlUuid && urlDomain && urlUuid === LOGIN_UUID && urlDomain === LOGIN_DOMAIN) {
+        showApp(); return;
+      }
       showLock();
       bindLockEvents(false);
     });
   }
 
+  function serverLogin(uuid, domain) {
+    return fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uuid: uuid, domain: domain })
+    }).then(function (r) { return r.json(); }).then(function (d) { return d.ok; })
+      .catch(function () { return false; });
+  }
+
   function bindLockEvents(useServer) {
-    function tryUnlock() {
-      var input = ($("lockPass").value || "").trim();
-      if (!input) return;
+    function tryLogin() {
+      var uuid = ($("loginUuid").value || "").trim();
+      var domain = ($("loginDomain").value || "").trim();
+      if (!uuid || !domain) { $("lockError").hidden = false; return; }
       $("lockError").hidden = true;
 
       if (useServer) {
-        fetch("/api/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password: input })
-        }).then(function (r) { return r.json(); }).then(function (d) {
-          if (d.ok) { showApp(); } else { $("lockError").hidden = false; }
-        }).catch(function () { $("lockError").hidden = false; });
+        serverLogin(uuid, domain).then(function (ok) {
+          if (ok) { showApp(); } else { $("lockError").hidden = false; }
+        });
       } else {
-        if (input === PANEL_PASSWORD) { showApp(); }
+        if (uuid === LOGIN_UUID && domain === LOGIN_DOMAIN) { showApp(); }
         else { $("lockError").hidden = false; }
       }
     }
-    $("lockSubmit").addEventListener("click", tryUnlock);
-    $("lockPass").addEventListener("keydown", function (e) { if (e.key === "Enter") tryUnlock(); });
+    $("lockSubmit").addEventListener("click", tryLogin);
+    $("loginUuid").addEventListener("keydown", function (e) { if (e.key === "Enter") tryLogin(); });
+    $("loginDomain").addEventListener("keydown", function (e) { if (e.key === "Enter") tryLogin(); });
   }
 
   // ---- Protocol Link Builders ----

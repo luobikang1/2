@@ -110,8 +110,9 @@ body {
 .lock-brand { font-size: 1.2rem; font-weight: 700; color: var(--accent); margin: 0 0 16px; letter-spacing: 1px; }
 .lock-box h2 { margin: 0 0 8px; color: var(--accent); }
 .lock-box p { color: var(--text-dim); margin: 0 0 20px; }
-.lock-box .with-btn { display: flex; gap: 8px; justify-content: center; }
-.lock-box input { width: 180px; }
+.lock-fields { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.lock-fields input { width: 240px; text-align: center; }
+.lock-fields button { width: 240px; }
 .lock-error { color: #ef4444; font-size: 0.85rem; margin-top: 14px; }
 
 /* Container */

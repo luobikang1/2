@@ -1,36 +1,38 @@
 /**
  * GET /api/config
- * Returns whether password protection is enabled.
- * Reads from: env.PANEL_PASS, KV binding PANEL_KV, or D1 binding PANEL_DB
+ * Returns whether login is required.
+ * Login is required when LOGIN_UUID and LOGIN_DOMAIN env vars are set,
+ * or when KV/D1 have stored credentials.
  */
 export async function onRequestGet(context) {
   const { env } = context;
-  let hasPassword = false;
+  let hasCredentials = false;
 
-  // Priority 1: Environment variable
-  if (env.PANEL_PASS) {
-    hasPassword = true;
+  // Priority 1: Environment variables
+  if (env.LOGIN_UUID && env.LOGIN_DOMAIN) {
+    hasCredentials = true;
   }
 
   // Priority 2: KV binding
-  if (!hasPassword && env.PANEL_KV) {
+  if (!hasCredentials && env.PANEL_KV) {
     try {
-      const val = await env.PANEL_KV.get("panel_pass");
-      if (val) hasPassword = true;
+      const uuid = await env.PANEL_KV.get("login_uuid");
+      const domain = await env.PANEL_KV.get("login_domain");
+      if (uuid && domain) hasCredentials = true;
     } catch (e) {}
   }
 
   // Priority 3: D1 binding
-  if (!hasPassword && env.PANEL_DB) {
+  if (!hasCredentials && env.PANEL_DB) {
     try {
       const row = await env.PANEL_DB.prepare(
-        "SELECT value FROM config WHERE key = 'panel_pass'"
+        "SELECT value FROM config WHERE key = 'login_uuid'"
       ).first();
-      if (row && row.value) hasPassword = true;
+      if (row && row.value) hasCredentials = true;
     } catch (e) {}
   }
 
-  return new Response(JSON.stringify({ protected: hasPassword }), {
+  return new Response(JSON.stringify({ protected: hasCredentials }), {
     headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
   });
 }
