@@ -1,21 +1,50 @@
 /* ============================================================================
- * 🦊 北极狐 Arctic Fox — 节点可视化配置面板
- * 纯前端：输入隧道域名等参数，一键生成 VLESS / VMess / Trojan / TUIC 节点
- * 支持二维码、单条复制、复制全部、Base64 订阅，数据不离开浏览器
- * ==========================================================================*/
+ * 北极狐 — 多协议节点可视化生成面板
+ * 支持：VLESS / VMess / Trojan / Hysteria2 / TUIC
+ * ========================================================================== */
 (function () {
   "use strict";
 
-  var STORAGE_KEY = "beijihu-panel-v1";
+  // ============================================================
+  // CONFIG: Login credentials — set UUID and DOMAIN to enable login.
+  // Both must be non-empty to require login. Leave empty to skip login.
+  // For Cloudflare Pages deployment, set environment variables:
+  //   LOGIN_UUID = your-uuid
+  //   LOGIN_DOMAIN = your-domain.com
+  // The Pages Function will validate these server-side.
+  // For static deployment, set them here as client-side fallback.
+  // ============================================================
+  var LOGIN_UUID = "";
+  var LOGIN_DOMAIN = "";
+
+  var STORAGE_KEY = "proxy-panel-nodes-v2";
+  var LANG_KEY = "proxy-panel-lang";
+  var CF_STORAGE_KEY = "proxy-panel-cf-usage-v1";
+  var TRAFFIC_KEY = "proxy-panel-traffic-v1";
+  var AUTH_KEY = "proxy-panel-auth-v1";
   var $ = function (id) { return document.getElementById(id); };
 
-  var fields = [
-    "domain", "uuid", "name", "cdn", "port",
-    "vlessPath", "vmessPath", "trojanPath",
-    "tuicAddr", "tuicPort", "tuicPass"
-  ];
+  var nodes = [];
+  var lang = localStorage.getItem(LANG_KEY) || "zh";
 
-  // ---- 工具函数 ----
+  // ---- i18n ----
+  function t(key) {
+    var dict = window.TUIC_I18N || {};
+    var tr = dict[lang] || dict.zh || {};
+    return tr[key] || key;
+  }
+
+  function applyI18n() {
+    document.querySelectorAll("[data-i18n]").forEach(function (el) {
+      el.textContent = t(el.getAttribute("data-i18n"));
+    });
+    document.querySelectorAll("[data-i18n-placeholder]").forEach(function (el) {
+      el.placeholder = t(el.getAttribute("data-i18n-placeholder"));
+    });
+    document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
+  }
+
+  // ---- Utilities ----
   function uuidv4() {
     if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
@@ -25,22 +54,16 @@
     });
   }
 
-  // UTF-8 安全的 base64（VMess ps 名称可能含中文）
   function utf8ToB64(str) {
     return btoa(unescape(encodeURIComponent(str)));
   }
 
-  function normPath(p) {
-    if (!p) return "/";
-    return p.charAt(0) === "/" ? p : "/" + p;
-  }
-
   function toast(msg, type) {
-    var t = $("toast");
-    t.textContent = msg;
-    t.className = "toast show" + (type ? " " + type : "");
+    var el = $("toast");
+    el.textContent = msg;
+    el.className = "toast show" + (type ? " " + type : "");
     clearTimeout(toast._t);
-    toast._t = setTimeout(function () { t.className = "toast"; }, 2000);
+    toast._t = setTimeout(function () { el.className = "toast"; }, 2400);
   }
 
   function copyText(text) {
@@ -62,179 +85,537 @@
     });
   }
 
-  // ---- 收集输入 ----
-  function readState() {
-    var s = {};
-    fields.forEach(function (k) { s[k] = ($(k).value || "").trim(); });
-    s.protocols = Array.prototype.slice
-      .call(document.querySelectorAll(".proto:checked"))
-      .map(function (el) { return el.value; });
-    return s;
+  function escHtml(s) { var d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+  function escAttr(s) { return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+  // ---- Login (UUID + Domain) ----
+  function showApp() {
+    $("lockScreen").style.display = "none";
+    $("appMain").style.display = "";
+    try { sessionStorage.setItem(AUTH_KEY, "1"); } catch (e) {}
+    initAvailableNode();
   }
 
-  function persist(s) {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch (e) {}
+  function showLock() {
+    $("lockScreen").style.display = "";
+    $("appMain").style.display = "none";
   }
 
-  function restore() {
-    try {
-      var s = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-      fields.forEach(function (k) { if (s[k] != null && $(k)) $(k).value = s[k]; });
-      if (s.protocols) {
-        document.querySelectorAll(".proto").forEach(function (el) {
-          el.checked = s.protocols.indexOf(el.value) !== -1;
+  function initLock() {
+    // Already logged in this session
+    if (sessionStorage.getItem(AUTH_KEY) === "1") { showApp(); return; }
+
+    // URL param auto-login: ?uuid=xxx&domain=yyy
+    var params = new URLSearchParams(window.location.search);
+    var urlUuid = (params.get("uuid") || "").trim();
+    var urlDomain = (params.get("domain") || "").trim();
+
+    // Try server-side auth first (Cloudflare Pages Functions)
+    fetch("/api/config").then(function (res) {
+      if (!res.ok) throw new Error("no api");
+      return res.json();
+    }).then(function (cfg) {
+      if (!cfg.protected) { showApp(); return; }
+      // Server says protected — try URL params
+      if (urlUuid && urlDomain) {
+        return serverLogin(urlUuid, urlDomain).then(function (ok) {
+          if (ok) { showApp(); } else { showLock(); bindLockEvents(true); }
         });
       }
+      showLock();
+      bindLockEvents(true);
+    }).catch(function () {
+      // No server API — use client-side fallback
+      if (!LOGIN_UUID && !LOGIN_DOMAIN) { showApp(); return; }
+      if (urlUuid && urlDomain && urlUuid === LOGIN_UUID && urlDomain === LOGIN_DOMAIN) {
+        showApp(); return;
+      }
+      showLock();
+      bindLockEvents(false);
+    });
+  }
+
+  function serverLogin(uuid, domain) {
+    return fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uuid: uuid, domain: domain })
+    }).then(function (r) { return r.json(); }).then(function (d) { return d.ok; })
+      .catch(function () { return false; });
+  }
+
+  function bindLockEvents(useServer) {
+    function tryLogin() {
+      var uuid = ($("loginUuid").value || "").trim();
+      var domain = ($("loginDomain").value || "").trim();
+      if (!uuid || !domain) { $("lockError").hidden = false; return; }
+      $("lockError").hidden = true;
+
+      if (useServer) {
+        serverLogin(uuid, domain).then(function (ok) {
+          if (ok) { showApp(); } else { $("lockError").hidden = false; }
+        });
+      } else {
+        if (uuid === LOGIN_UUID && domain === LOGIN_DOMAIN) { showApp(); }
+        else { $("lockError").hidden = false; }
+      }
+    }
+    $("lockSubmit").addEventListener("click", tryLogin);
+    $("loginUuid").addEventListener("keydown", function (e) { if (e.key === "Enter") tryLogin(); });
+    $("loginDomain").addEventListener("keydown", function (e) { if (e.key === "Enter") tryLogin(); });
+  }
+
+  // ---- Protocol Link Builders ----
+  function buildVlessLink(cfg) {
+    var params = "encryption=none&type=" + cfg.transport +
+      "&security=" + cfg.security +
+      "&sni=" + (cfg.sni || cfg.server) +
+      "&fp=randomized" +
+      "&alpn=" + encodeURIComponent(cfg.alpn) +
+      "&allowInsecure=" + cfg.allowInsecure;
+    if (cfg.transport === "ws") params += "&path=" + encodeURIComponent(cfg.path || "/") + "&host=" + (cfg.sni || cfg.server);
+    if (cfg.transport === "grpc") params += "&serviceName=" + encodeURIComponent(cfg.path || "");
+    return "vless://" + cfg.uuid + "@" + cfg.server + ":" + cfg.port + "?" + params + "#" + encodeURIComponent(cfg.name);
+  }
+
+  function buildVmessLink(cfg) {
+    var obj = {
+      v: "2", ps: cfg.name, add: cfg.server, port: cfg.port,
+      id: cfg.uuid, aid: "0", scy: "auto",
+      net: cfg.transport, type: "none",
+      host: cfg.sni || cfg.server, path: cfg.path || "/",
+      tls: cfg.security === "none" ? "" : "tls",
+      sni: cfg.sni || cfg.server,
+      alpn: cfg.alpn
+    };
+    return "vmess://" + utf8ToB64(JSON.stringify(obj));
+  }
+
+  function buildTrojanLink(cfg) {
+    var params = "type=" + cfg.transport +
+      "&security=" + cfg.security +
+      "&sni=" + (cfg.sni || cfg.server) +
+      "&alpn=" + encodeURIComponent(cfg.alpn) +
+      "&allowInsecure=" + cfg.allowInsecure;
+    if (cfg.transport === "ws") params += "&path=" + encodeURIComponent(cfg.path || "/") + "&host=" + (cfg.sni || cfg.server);
+    if (cfg.transport === "grpc") params += "&serviceName=" + encodeURIComponent(cfg.path || "");
+    return "trojan://" + cfg.uuid + "@" + cfg.server + ":" + cfg.port + "?" + params + "#" + encodeURIComponent(cfg.name);
+  }
+
+  function buildHysteria2Link(cfg) {
+    var params = "sni=" + (cfg.sni || cfg.server) +
+      "&alpn=" + encodeURIComponent(cfg.alpn || "h3") +
+      "&insecure=" + cfg.allowInsecure;
+    return "hysteria2://" + cfg.uuid + "@" + cfg.server + ":" + cfg.port + "?" + params + "#" + encodeURIComponent(cfg.name);
+  }
+
+  function buildTuicLink(cfg) {
+    var password = cfg.uuid;
+    var sni = cfg.sni || cfg.server;
+    return "tuic://" + cfg.uuid + ":" + password +
+      "@" + cfg.server + ":" + cfg.port +
+      "?congestion_control=" + (cfg.congestion || "bbr") +
+      "&alpn=" + encodeURIComponent(cfg.alpn || "h3") +
+      "&sni=" + sni +
+      "&udp_relay_mode=native" +
+      "&allow_insecure=" + cfg.allowInsecure +
+      "#" + encodeURIComponent(cfg.name);
+  }
+
+  function buildLink(cfg) {
+    switch (cfg.protocol) {
+      case "vless": return buildVlessLink(cfg);
+      case "vmess": return buildVmessLink(cfg);
+      case "trojan": return buildTrojanLink(cfg);
+      case "hysteria2": return buildHysteria2Link(cfg);
+      case "tuic": return buildTuicLink(cfg);
+      default: return buildVlessLink(cfg);
+    }
+  }
+
+  // ---- Persistence ----
+  function persist() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(nodes)); } catch (e) {} }
+  function restore() { try { var s = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); if (Array.isArray(s)) nodes = s; } catch (e) {} }
+
+  // ---- Read form ----
+  function readForm() {
+    return {
+      protocol: $("protocol").value,
+      server: ($("server").value || "").trim(),
+      port: ($("port").value || "443").trim(),
+      uuid: ($("uuid").value || "").trim(),
+      sni: ($("sni").value || "").trim(),
+      name: ($("nodeName").value || "Proxy-Node").trim(),
+      transport: $("transport").value,
+      security: $("security").value,
+      path: ($("wsPath").value || "").trim(),
+      alpn: $("alpn").value,
+      congestion: $("congestion").value,
+      allowInsecure: $("allowInsecure").value
+    };
+  }
+
+  // ---- Render nodes ----
+  function renderNodes() {
+    var output = $("nodesOutput");
+    var subSection = $("subSection");
+    output.innerHTML = "";
+    if (!nodes.length) { subSection.hidden = true; output.innerHTML = '<p class="empty-msg">' + t("empty_nodes") + '</p>'; return; }
+    subSection.hidden = false;
+    $("subContent").value = utf8ToB64(nodes.map(function (n) { return n.link; }).join("\n"));
+    $("subSingbox").value = buildSingboxConfig(nodes);
+
+    nodes.forEach(function (node, idx) {
+      var card = document.createElement("div");
+      card.className = "node-card";
+      var proto = (node.config && node.config.protocol) || "vless";
+      card.innerHTML =
+        '<div class="node-header">' +
+          '<span class="badge badge-' + proto + '">' + proto.toUpperCase() + '</span>' +
+          '<span class="node-name">' + escHtml(node.name) + '</span>' +
+          '<button type="button" class="del-btn" data-idx="' + idx + '">✕</button>' +
+        '</div>' +
+        '<div class="node-qr" id="qr-' + idx + '"></div>' +
+        '<div class="node-link-box">' +
+          '<input class="node-link" value="' + escAttr(node.link) + '" readonly />' +
+          '<button type="button" class="copy-btn" data-idx="' + idx + '">' + (lang === "zh" ? "复制" : "Copy") + '</button>' +
+        '</div>';
+      output.appendChild(card);
+
+      try {
+        new QRCode(document.getElementById("qr-" + idx), {
+          text: node.link, width: 160, height: 160,
+          correctLevel: QRCode.CorrectLevel.M, colorDark: "#1a1a2e", colorLight: "#ffffff"
+        });
+      } catch (e) {}
+    });
+
+    output.querySelectorAll(".del-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        nodes.splice(parseInt(this.getAttribute("data-idx"), 10), 1);
+        persist(); renderNodes(); toast(t("toast_del"), "ok");
+      });
+    });
+    output.querySelectorAll(".copy-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var i = parseInt(this.getAttribute("data-idx"), 10);
+        copyText(nodes[i].link).then(function () { toast(t("toast_copied") + nodes[i].name, "ok"); }).catch(function () { toast(t("toast_copy_fail"), "warn"); });
+      });
+    });
+  }
+
+  // ---- Add node ----
+  function addNode() {
+    var cfg = readForm();
+    if (!cfg.server) { toast(t("toast_no_server"), "warn"); $("server").focus(); return; }
+    if (!cfg.uuid) { toast(t("toast_no_uuid"), "warn"); $("uuid").focus(); return; }
+    if (!cfg.port) { toast(t("toast_no_port"), "warn"); $("port").focus(); return; }
+    var link = buildLink(cfg);
+    nodes.push({ name: cfg.name, link: link, config: cfg });
+    persist(); renderNodes();
+    toast(t("toast_add") + cfg.name, "ok");
+  }
+
+  // ---- Quick generate (10 nodes + subscription) ----
+  // Cloudflare supported HTTPS ports
+  var CF_PORTS = ["443", "8443", "2053", "2083", "2087", "2096"];
+
+  function quickGenerate() {
+    var server = ($("quickServer").value || "").trim();
+    if (!server) { toast(t("toast_no_domain"), "warn"); $("quickServer").focus(); return; }
+
+    var uuid = uuidv4();
+    var baseName = server.split(".")[0];
+    var generated = [];
+
+    // Generate 10 VLESS nodes with different port/path combinations
+    for (var i = 0; i < 10; i++) {
+      var port = CF_PORTS[i % CF_PORTS.length];
+      var pathSuffix = i === 0 ? uuid : uuid.slice(0, 8) + "-" + i;
+      var cfg = {
+        protocol: "vless",
+        server: server,
+        port: port,
+        uuid: uuid,
+        sni: server,
+        name: "VLESS-" + baseName + "-" + (i + 1),
+        transport: "ws",
+        security: "tls",
+        path: "/" + pathSuffix,
+        alpn: "h2,http/1.1",
+        congestion: "bbr",
+        allowInsecure: "0"
+      };
+      var link = buildVlessLink(cfg);
+      generated.push({ name: cfg.name, link: link, config: cfg });
+    }
+
+    // Replace all nodes with new batch
+    nodes = generated;
+    persist();
+    renderNodes();
+
+    // Build subscriptions
+    var allLinks = nodes.map(function (n) { return n.link; }).join("\n");
+    var base64Sub = utf8ToB64(allLinks);
+    var singboxJson = buildSingboxConfig(nodes);
+
+    // Show quick sub output
+    var qso = $("quickSubOutput");
+    qso.hidden = false;
+    $("quickSubBase64").value = base64Sub;
+    $("quickSubSingbox").value = singboxJson;
+    $("quickUuidInfo").textContent = "UUID: " + uuid + " — " + t("toast_uuid_hint");
+
+    toast(t("toast_gen_batch"), "ok");
+  }
+
+  // ---- sing-box JSON config builder ----
+  function buildSingboxConfig(nodeList) {
+    var outbounds = [];
+    var tags = [];
+
+    nodeList.forEach(function (node) {
+      var cfg = node.config;
+      if (!cfg || cfg.protocol !== "vless") return;
+      var tag = cfg.name || "proxy-" + tags.length;
+      tags.push(tag);
+      var ob = {
+        type: "vless",
+        tag: tag,
+        server: cfg.server,
+        server_port: parseInt(cfg.port, 10) || 443,
+        uuid: cfg.uuid,
+        flow: "",
+        tls: {
+          enabled: true,
+          server_name: cfg.sni || cfg.server,
+          insecure: cfg.allowInsecure === "1",
+          alpn: (cfg.alpn || "h2,http/1.1").split(",")
+        },
+        transport: {
+          type: "ws",
+          path: cfg.path || "/",
+          headers: { Host: cfg.sni || cfg.server }
+        }
+      };
+      outbounds.push(ob);
+    });
+
+    // Add selector and direct
+    var config = {
+      log: { level: "info" },
+      dns: {
+        servers: [
+          { tag: "google", address: "tls://8.8.8.8" },
+          { tag: "local", address: "223.5.5.5", detour: "direct" }
+        ],
+        rules: [{ geosite: "cn", server: "local" }]
+      },
+      inbounds: [
+        { type: "tun", tag: "tun-in", inet4_address: "172.19.0.1/30", auto_route: true, strict_route: true, sniff: true },
+        { type: "mixed", tag: "mixed-in", listen: "127.0.0.1", listen_port: 2080, sniff: true }
+      ],
+      outbounds: [
+        { type: "selector", tag: "proxy", outbounds: tags.concat(["auto", "direct"]) },
+        { type: "urltest", tag: "auto", outbounds: tags, interval: "5m", tolerance: 200 }
+      ].concat(outbounds).concat([
+        { type: "direct", tag: "direct" },
+        { type: "block", tag: "block" },
+        { type: "dns", tag: "dns-out" }
+      ]),
+      route: {
+        geoip: { download_url: "https://github.com/SagerNet/sing-geoip/releases/latest/download/geoip.db" },
+        geosite: { download_url: "https://github.com/SagerNet/sing-geosite/releases/latest/download/geosite.db" },
+        rules: [
+          { protocol: "dns", outbound: "dns-out" },
+          { geosite: "cn", geoip: "cn", outbound: "direct" }
+        ],
+        auto_detect_interface: true
+      }
+    };
+    return JSON.stringify(config, null, 2);
+  }
+
+  // ---- Traffic Monitor ----
+  function toMB(val, unit) {
+    if (unit === "GB") return val * 1024;
+    if (unit === "TB") return val * 1024 * 1024;
+    return val;
+  }
+
+  function updateTraffic() {
+    var used = parseFloat($("trafficUsed").value) || 0;
+    var usedUnit = $("trafficUnit").value;
+    var limit = parseFloat($("trafficLimit").value) || 100;
+    var limitUnit = $("trafficLimitUnit").value;
+    var usedMB = toMB(used, usedUnit);
+    var limitMB = toMB(limit, limitUnit);
+    var pct = limitMB > 0 ? Math.min((usedMB / limitMB) * 100, 100) : 0;
+    $("trafficPct").textContent = pct.toFixed(1) + "%";
+    var bar = $("trafficBar");
+    bar.style.width = pct + "%";
+    bar.className = "traffic-bar";
+    if (pct >= 90) bar.classList.add("danger");
+    else if (pct >= 70) bar.classList.add("warn");
+    try { localStorage.setItem(TRAFFIC_KEY, JSON.stringify({ used: used, usedUnit: usedUnit, limit: limit, limitUnit: limitUnit })); } catch (e) {}
+  }
+
+  function restoreTraffic() {
+    try {
+      var d = JSON.parse(localStorage.getItem(TRAFFIC_KEY) || "{}");
+      if (d.used != null) $("trafficUsed").value = d.used;
+      if (d.usedUnit) $("trafficUnit").value = d.usedUnit;
+      if (d.limit != null) $("trafficLimit").value = d.limit;
+      if (d.limitUnit) $("trafficLimitUnit").value = d.limitUnit;
     } catch (e) {}
   }
 
-  // ---- 生成各协议链接 ----
-  function buildLinks(s) {
-    var domain = s.domain;
-    var name = s.name || "北极狐";
-    var addr = s.cdn || domain;             // WS 节点的连接地址（可优选）
-    var port = s.port || "443";
-    var uuid = s.uuid;
-    var out = [];
+  // ---- CF Dashboard ----
+  var cfItems = [
+    { id: "Pages", inputId: "cfPages", barId: "cfBarPages", max: 500 },
+    { id: "Workers", inputId: "cfWorkers", barId: "cfBarWorkers", max: 100000 },
+    { id: "KvRead", inputId: "cfKvRead", barId: "cfBarKvRead", max: 100000 },
+    { id: "KvWrite", inputId: "cfKvWrite", barId: "cfBarKvWrite", max: 1000 },
+    { id: "R2", inputId: "cfR2", barId: "cfBarR2", max: 10 },
+    { id: "R2A", inputId: "cfR2A", barId: "cfBarR2A", max: 1000000 },
+    { id: "R2B", inputId: "cfR2B", barId: "cfBarR2B", max: 10000000 },
+    { id: "D1", inputId: "cfD1", barId: "cfBarD1", max: 5000000 }
+  ];
 
-    if (s.protocols.indexOf("vless") !== -1) {
-      var vp = encodeURIComponent(normPath(s.vlessPath || "/vless"));
-      var vlink = "vless://" + uuid + "@" + addr + ":" + port +
-        "?encryption=none&security=tls&sni=" + domain +
-        "&fp=chrome&type=ws&host=" + domain + "&path=" + vp +
-        "#" + encodeURIComponent(name + "-vless");
-      out.push({ type: "vless", name: name + "-vless", link: vlink });
-    }
+  function updateCfBars() {
+    var data = {};
+    cfItems.forEach(function (item) {
+      var val = parseFloat($(item.inputId).value) || 0;
+      var pct = Math.min((val / item.max) * 100, 100);
+      var bar = $(item.barId);
+      bar.style.width = pct + "%";
+      bar.className = "cf-bar";
+      if (pct >= 90) bar.classList.add("danger");
+      else if (pct >= 70) bar.classList.add("warn");
+      data[item.id] = val;
+    });
+    try { localStorage.setItem(CF_STORAGE_KEY, JSON.stringify(data)); } catch (e) {}
+  }
 
-    if (s.protocols.indexOf("vmess") !== -1) {
-      var vmess = {
-        v: "2", ps: name + "-vmess", add: addr, port: String(port),
-        id: uuid, aid: "0", scy: "auto", net: "ws", type: "none",
-        host: domain, path: normPath(s.vmessPath || "/vmess"),
-        tls: "tls", sni: domain
+  function restoreCfData() {
+    try {
+      var data = JSON.parse(localStorage.getItem(CF_STORAGE_KEY) || "{}");
+      cfItems.forEach(function (item) { if (data[item.id] != null) $(item.inputId).value = data[item.id]; });
+    } catch (e) {}
+  }
+
+  // ---- Available Subscription (auto-generated from server UUID) ----
+  function initAvailableNode() {
+    fetch("/api/config").then(function (res) {
+      if (!res.ok) throw new Error("no api");
+      return res.json();
+    }).then(function (cfg) {
+      if (!cfg.proxyUuid) return;
+      var domain = window.location.hostname;
+      var uuid = cfg.proxyUuid;
+      var nodeCfg = {
+        protocol: "vless",
+        server: domain,
+        port: "443",
+        uuid: uuid,
+        sni: domain,
+        name: "VLESS-" + domain.split(".")[0] + "-可用",
+        transport: "ws",
+        security: "tls",
+        path: "/" + uuid,
+        alpn: "h2,http/1.1",
+        congestion: "bbr",
+        allowInsecure: "0"
       };
-      out.push({
-        type: "vmess", name: name + "-vmess",
-        link: "vmess://" + utf8ToB64(JSON.stringify(vmess))
-      });
-    }
+      var link = buildVlessLink(nodeCfg);
+      var nodeList = [{ name: nodeCfg.name, link: link, config: nodeCfg }];
+      var base64Sub = utf8ToB64(link);
+      var singboxJson = buildSingboxConfig(nodeList);
 
-    if (s.protocols.indexOf("trojan") !== -1) {
-      var tp = encodeURIComponent(normPath(s.trojanPath || "/trojan"));
-      var tlink = "trojan://" + uuid + "@" + addr + ":" + port +
-        "?security=tls&sni=" + domain +
-        "&fp=chrome&type=ws&host=" + domain + "&path=" + tp +
-        "#" + encodeURIComponent(name + "-trojan");
-      out.push({ type: "trojan", name: name + "-trojan", link: tlink });
-    }
+      // Show available section
+      var sec = $("availSection");
+      sec.hidden = false;
+      $("availNodeLink").value = link;
+      $("availBase64").value = base64Sub;
+      $("availSingbox").value = singboxJson;
 
-    if (s.protocols.indexOf("tuic") !== -1) {
-      var tuicAddr = s.tuicAddr || domain;
-      var tuicPort = s.tuicPort || "443";
-      var tuicPass = s.tuicPass || uuid;
-      var tuicLink = "tuic://" + uuid + ":" + tuicPass + "@" + tuicAddr + ":" + tuicPort +
-        "?congestion_control=bbr&alpn=h3&sni=" + domain + "&allow_insecure=1" +
-        "#" + encodeURIComponent(name + "-tuic");
-      out.push({ type: "tuic", name: name + "-tuic", link: tuicLink });
-    }
-
-    return out;
-  }
-
-  // ---- 渲染 ----
-  function render(nodes) {
-    var box = $("output");
-    box.innerHTML = "";
-    if (!nodes.length) {
-      box.innerHTML = '<p style="color:var(--text-dim);text-align:center">未选择任何协议</p>';
-      return;
-    }
-    var tpl = $("nodeCardTpl");
-    nodes.forEach(function (n) {
-      var node = tpl.content.cloneNode(true);
-      var badge = node.querySelector(".badge");
-      badge.textContent = n.type.toUpperCase();
-      badge.classList.add(n.type);
-      node.querySelector(".node-name").textContent = n.name;
-      node.querySelector(".link").value = n.link;
-
-      var qrEl = node.querySelector(".qr");
+      // QR code
       try {
-        new QRCode(qrEl, {
-          text: n.link, width: 116, height: 116,
-          correctLevel: QRCode.CorrectLevel.M
+        new QRCode(document.getElementById("availQr"), {
+          text: link, width: 160, height: 160,
+          correctLevel: QRCode.CorrectLevel.M, colorDark: "#1a1a2e", colorLight: "#ffffff"
         });
-      } catch (e) {
-        qrEl.textContent = "二维码生成失败";
-      }
+      } catch (e) {}
 
-      var copyBtn = node.querySelector(".copy");
-      copyBtn.addEventListener("click", function () {
-        copyText(n.link)
-          .then(function () { toast("已复制 " + n.name, "ok"); })
-          .catch(function () { toast("复制失败，请手动选择", "warn"); });
-      });
-
-      box.appendChild(node);
+      // Copy buttons
+      $("copyAvailLink").addEventListener("click", function () { copyText(link).then(function () { toast(t("toast_copied") + nodeCfg.name, "ok"); }).catch(function () { toast(t("toast_copy_fail"), "warn"); }); });
+      $("copyAvailBase64").addEventListener("click", function () { copyText(base64Sub).then(function () { toast(t("toast_copy_sub"), "ok"); }).catch(function () { toast(t("toast_copy_fail"), "warn"); }); });
+      $("copyAvailSingbox").addEventListener("click", function () { copyText(singboxJson).then(function () { toast("sing-box JSON copied", "ok"); }).catch(function () { toast(t("toast_copy_fail"), "warn"); }); });
+    }).catch(function () {
+      // No API or no UUID — skip
     });
   }
 
-  // ---- 校验 + 生成 ----
-  function generate() {
-    var s = readState();
-    if (!s.domain) { toast("请先填写隧道域名", "warn"); $("domain").focus(); return null; }
-    if (!s.uuid) { toast("请先填写或生成 UUID", "warn"); $("uuid").focus(); return null; }
-    if (!s.protocols.length) { toast("请至少勾选一个协议", "warn"); return null; }
-    persist(s);
-    var nodes = buildLinks(s);
-    render(nodes);
-    return nodes;
-  }
-
-  // ---- 事件绑定 ----
+  // ---- Init ----
   function init() {
+    initLock();
+    applyI18n();
     restore();
+    renderNodes();
 
-    $("genUuid").addEventListener("click", function () {
-      $("uuid").value = uuidv4();
-      toast("已生成新的 UUID", "ok");
+    // Language
+    $("langToggle").addEventListener("click", function () {
+      lang = lang === "zh" ? "en" : "zh";
+      localStorage.setItem(LANG_KEY, lang);
+      applyI18n(); renderNodes();
     });
 
-    $("generate").addEventListener("click", generate);
+    // Quick gen
+    $("quickGen").addEventListener("click", quickGenerate);
+    $("quickServer").addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); quickGenerate(); } });
 
-    $("copyAll").addEventListener("click", function () {
-      var nodes = generate();
-      if (!nodes || !nodes.length) return;
-      var all = nodes.map(function (n) { return n.link; }).join("\n");
-      copyText(all)
-        .then(function () { toast("已复制全部 " + nodes.length + " 个节点", "ok"); })
-        .catch(function () { toast("复制失败", "warn"); });
+    // UUID
+    $("genUuid").addEventListener("click", function () { $("uuid").value = uuidv4(); toast(t("toast_uuid"), "ok"); });
+
+    // Add / Clear
+    $("addNode").addEventListener("click", addNode);
+    $("clearAll").addEventListener("click", function () { if (!nodes.length) return; nodes = []; persist(); renderNodes(); toast(t("toast_clear"), "ok"); });
+
+    // Copy
+    $("copySub").addEventListener("click", function () { copyText($("subContent").value).then(function () { toast(t("toast_copy_sub"), "ok"); }).catch(function () { toast(t("toast_copy_fail"), "warn"); }); });
+    $("copySubBtn").addEventListener("click", function () { copyText($("subContent").value).then(function () { toast(t("toast_copy_sub"), "ok"); }).catch(function () { toast(t("toast_copy_fail"), "warn"); }); });
+    $("copySingbox").addEventListener("click", function () { copyText($("subSingbox").value).then(function () { toast("sing-box JSON copied", "ok"); }).catch(function () { toast(t("toast_copy_fail"), "warn"); }); });
+    $("copyAllLinks").addEventListener("click", function () {
+      if (!nodes.length) return;
+      copyText(nodes.map(function (n) { return n.link; }).join("\n")).then(function () { toast(t("toast_copy_all"), "ok"); }).catch(function () { toast(t("toast_copy_fail"), "warn"); });
     });
 
-    $("copySub").addEventListener("click", function () {
-      var nodes = generate();
-      if (!nodes || !nodes.length) return;
-      var sub = utf8ToB64(nodes.map(function (n) { return n.link; }).join("\n"));
-      copyText(sub)
-        .then(function () { toast("已复制 Base64 订阅内容", "ok"); })
-        .catch(function () { toast("复制失败", "warn"); });
-    });
+    // Quick sub copy buttons
+    $("copyQuickBase64").addEventListener("click", function () { copyText($("quickSubBase64").value).then(function () { toast(t("toast_copy_sub"), "ok"); }).catch(function () { toast(t("toast_copy_fail"), "warn"); }); });
+    $("copyQuickSingbox").addEventListener("click", function () { copyText($("quickSubSingbox").value).then(function () { toast("sing-box JSON copied", "ok"); }).catch(function () { toast(t("toast_copy_fail"), "warn"); }); });
 
-    // 回车即生成
+    // Enter to add
     document.querySelectorAll(".form-card input").forEach(function (el) {
-      el.addEventListener("keydown", function (e) {
-        if (e.key === "Enter") { e.preventDefault(); generate(); }
-      });
+      el.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); addNode(); } });
     });
 
-    // 若有已保存且完整的配置，自动渲染一次
-    var s = readState();
-    if (s.domain && s.uuid) generate();
+    // Traffic
+    restoreTraffic();
+    updateTraffic();
+    ["trafficUsed", "trafficUnit", "trafficLimit", "trafficLimitUnit"].forEach(function (id) {
+      $(id).addEventListener("input", updateTraffic);
+      $(id).addEventListener("change", updateTraffic);
+    });
+
+    // CF Dashboard
+    restoreCfData();
+    updateCfBars();
+    $("cfUpdate").addEventListener("click", function () { updateCfBars(); toast(t("toast_cf_refresh"), "ok"); });
+    $("cfReset").addEventListener("click", function () { cfItems.forEach(function (item) { $(item.inputId).value = 0; }); updateCfBars(); toast(t("toast_cf_reset"), "ok"); });
+    cfItems.forEach(function (item) { $(item.inputId).addEventListener("input", updateCfBars); });
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  if (document.readyState === "loading") { document.addEventListener("DOMContentLoaded", init); }
+  else { init(); }
 })();
