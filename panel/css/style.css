@@ -107,6 +107,7 @@ body {
   width: 90%;
   backdrop-filter: blur(14px);
 }
+.lock-brand { font-size: 1.2rem; font-weight: 700; color: var(--accent); margin: 0 0 16px; letter-spacing: 1px; }
 .lock-box h2 { margin: 0 0 8px; color: var(--accent); }
 .lock-box p { color: var(--text-dim); margin: 0 0 20px; }
 .lock-box .with-btn { display: flex; gap: 8px; justify-content: center; }

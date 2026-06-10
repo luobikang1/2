@@ -1,12 +1,15 @@
 /* ============================================================================
- * Proxy Panel — 多协议节点可视化生成面板
+ * 北极狐 Proxy Panel — 多协议节点可视化生成面板
  * 支持：VLESS / VMess / Trojan / Hysteria2 / TUIC
  * ========================================================================== */
 (function () {
   "use strict";
 
   // ============================================================
-  // CONFIG: Set password here. Leave "" to disable.
+  // CONFIG: Client-side password fallback (used when no server-side
+  // Functions/KV/D1 are available). Leave "" to disable.
+  // For production, set PANEL_PASS env variable on Cloudflare Pages,
+  // or use KV binding PANEL_KV, or D1 binding PANEL_DB instead.
   // ============================================================
   var PANEL_PASSWORD = "";
 
@@ -14,6 +17,7 @@
   var LANG_KEY = "proxy-panel-lang";
   var CF_STORAGE_KEY = "proxy-panel-cf-usage-v1";
   var TRAFFIC_KEY = "proxy-panel-traffic-v1";
+  var AUTH_KEY = "proxy-panel-auth-v1";
   var $ = function (id) { return document.getElementById(id); };
 
   var nodes = [];
@@ -80,16 +84,72 @@
   function escHtml(s) { var d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
   function escAttr(s) { return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 
-  // ---- Password ----
+  // ---- Password (Server-side D1/KV/env + client-side fallback) ----
+  function showApp() {
+    $("lockScreen").hidden = true;
+    $("appMain").style.display = "";
+    try { sessionStorage.setItem(AUTH_KEY, "1"); } catch (e) {}
+  }
+
+  function showLock() {
+    $("lockScreen").hidden = false;
+    $("appMain").style.display = "none";
+  }
+
   function initLock() {
-    var pw = PANEL_PASSWORD || "";
-    if (!pw) { $("lockScreen").hidden = true; $("appMain").style.display = ""; return; }
+    // Already authed this session
+    if (sessionStorage.getItem(AUTH_KEY) === "1") { showApp(); return; }
+
+    // URL param auto-unlock (works for both modes)
     var params = new URLSearchParams(window.location.search);
-    if ((params.get("pass") || "") === pw) { $("lockScreen").hidden = true; $("appMain").style.display = ""; return; }
-    $("lockScreen").hidden = false; $("appMain").style.display = "none";
+    var urlPass = params.get("pass") || "";
+
+    // Try server-side auth first (Cloudflare Pages Functions)
+    fetch("/api/config").then(function (res) {
+      if (!res.ok) throw new Error("no api");
+      return res.json();
+    }).then(function (cfg) {
+      if (!cfg.protected) { showApp(); return; }
+      // Server says protected — try URL param
+      if (urlPass) {
+        return fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: urlPass })
+        }).then(function (r) { return r.json(); }).then(function (d) {
+          if (d.ok) { showApp(); } else { showLock(); bindLockEvents(true); }
+        });
+      }
+      showLock();
+      bindLockEvents(true);
+    }).catch(function () {
+      // No server API available — use client-side fallback
+      var pw = PANEL_PASSWORD || "";
+      if (!pw) { showApp(); return; }
+      if (urlPass === pw) { showApp(); return; }
+      showLock();
+      bindLockEvents(false);
+    });
+  }
+
+  function bindLockEvents(useServer) {
     function tryUnlock() {
-      if ($("lockPass").value === pw) { $("lockScreen").hidden = true; $("appMain").style.display = ""; $("lockError").hidden = true; }
-      else { $("lockError").hidden = false; }
+      var input = ($("lockPass").value || "").trim();
+      if (!input) return;
+      $("lockError").hidden = true;
+
+      if (useServer) {
+        fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: input })
+        }).then(function (r) { return r.json(); }).then(function (d) {
+          if (d.ok) { showApp(); } else { $("lockError").hidden = false; }
+        }).catch(function () { $("lockError").hidden = false; });
+      } else {
+        if (input === PANEL_PASSWORD) { showApp(); }
+        else { $("lockError").hidden = false; }
+      }
     }
     $("lockSubmit").addEventListener("click", tryUnlock);
     $("lockPass").addEventListener("keydown", function (e) { if (e.key === "Enter") tryUnlock(); });
