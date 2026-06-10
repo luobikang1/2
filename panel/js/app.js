@@ -1,21 +1,16 @@
 /* ============================================================================
- * 🦊 北极狐 Arctic Fox — 节点可视化配置面板
- * 纯前端：输入隧道域名等参数，一键生成 VLESS / VMess / Trojan / TUIC 节点
- * 支持二维码、单条复制、复制全部、Base64 订阅，数据不离开浏览器
- * ==========================================================================*/
+ * TUIC Panel — 节点可视化生成面板
+ * 纯前端：输入 TUIC 节点参数，生成 tuic:// 链接、二维码与 Base64 订阅
+ * ========================================================================== */
 (function () {
   "use strict";
 
-  var STORAGE_KEY = "beijihu-panel-v1";
+  var STORAGE_KEY = "tuic-panel-nodes-v1";
   var $ = function (id) { return document.getElementById(id); };
 
-  var fields = [
-    "domain", "uuid", "name", "cdn", "port",
-    "vlessPath", "vmessPath", "trojanPath",
-    "tuicAddr", "tuicPort", "tuicPass"
-  ];
+  var nodes = [];
 
-  // ---- 工具函数 ----
+  // ---- Utilities ----
   function uuidv4() {
     if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
@@ -25,14 +20,8 @@
     });
   }
 
-  // UTF-8 安全的 base64（VMess ps 名称可能含中文）
   function utf8ToB64(str) {
     return btoa(unescape(encodeURIComponent(str)));
-  }
-
-  function normPath(p) {
-    if (!p) return "/";
-    return p.charAt(0) === "/" ? p : "/" + p;
   }
 
   function toast(msg, type) {
@@ -40,7 +29,7 @@
     t.textContent = msg;
     t.className = "toast show" + (type ? " " + type : "");
     clearTimeout(toast._t);
-    toast._t = setTimeout(function () { t.className = "toast"; }, 2000);
+    toast._t = setTimeout(function () { t.className = "toast"; }, 2400);
   }
 
   function copyText(text) {
@@ -62,174 +51,195 @@
     });
   }
 
-  // ---- 收集输入 ----
-  function readState() {
-    var s = {};
-    fields.forEach(function (k) { s[k] = ($(k).value || "").trim(); });
-    s.protocols = Array.prototype.slice
-      .call(document.querySelectorAll(".proto:checked"))
-      .map(function (el) { return el.value; });
-    return s;
+  // ---- Build TUIC link ----
+  function buildTuicLink(cfg) {
+    var password = cfg.password || cfg.uuid;
+    var sni = cfg.sni || cfg.server;
+    var link = "tuic://" + cfg.uuid + ":" + password +
+      "@" + cfg.server + ":" + cfg.port +
+      "?congestion_control=" + cfg.congestion +
+      "&alpn=" + encodeURIComponent(cfg.alpn) +
+      "&sni=" + sni +
+      "&udp_relay_mode=" + cfg.udpRelay +
+      "&allow_insecure=" + cfg.allowInsecure +
+      "#" + encodeURIComponent(cfg.name);
+    return link;
   }
 
-  function persist(s) {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch (e) {}
+  // ---- Persistence ----
+  function persist() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(nodes)); } catch (e) {}
   }
 
   function restore() {
     try {
-      var s = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-      fields.forEach(function (k) { if (s[k] != null && $(k)) $(k).value = s[k]; });
-      if (s.protocols) {
-        document.querySelectorAll(".proto").forEach(function (el) {
-          el.checked = s.protocols.indexOf(el.value) !== -1;
-        });
-      }
+      var saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+      if (Array.isArray(saved)) nodes = saved;
     } catch (e) {}
   }
 
-  // ---- 生成各协议链接 ----
-  function buildLinks(s) {
-    var domain = s.domain;
-    var name = s.name || "北极狐";
-    var addr = s.cdn || domain;             // WS 节点的连接地址（可优选）
-    var port = s.port || "443";
-    var uuid = s.uuid;
-    var out = [];
-
-    if (s.protocols.indexOf("vless") !== -1) {
-      var vp = encodeURIComponent(normPath(s.vlessPath || "/vless"));
-      var vlink = "vless://" + uuid + "@" + addr + ":" + port +
-        "?encryption=none&security=tls&sni=" + domain +
-        "&fp=chrome&type=ws&host=" + domain + "&path=" + vp +
-        "#" + encodeURIComponent(name + "-vless");
-      out.push({ type: "vless", name: name + "-vless", link: vlink });
-    }
-
-    if (s.protocols.indexOf("vmess") !== -1) {
-      var vmess = {
-        v: "2", ps: name + "-vmess", add: addr, port: String(port),
-        id: uuid, aid: "0", scy: "auto", net: "ws", type: "none",
-        host: domain, path: normPath(s.vmessPath || "/vmess"),
-        tls: "tls", sni: domain
-      };
-      out.push({
-        type: "vmess", name: name + "-vmess",
-        link: "vmess://" + utf8ToB64(JSON.stringify(vmess))
-      });
-    }
-
-    if (s.protocols.indexOf("trojan") !== -1) {
-      var tp = encodeURIComponent(normPath(s.trojanPath || "/trojan"));
-      var tlink = "trojan://" + uuid + "@" + addr + ":" + port +
-        "?security=tls&sni=" + domain +
-        "&fp=chrome&type=ws&host=" + domain + "&path=" + tp +
-        "#" + encodeURIComponent(name + "-trojan");
-      out.push({ type: "trojan", name: name + "-trojan", link: tlink });
-    }
-
-    if (s.protocols.indexOf("tuic") !== -1) {
-      var tuicAddr = s.tuicAddr || domain;
-      var tuicPort = s.tuicPort || "443";
-      var tuicPass = s.tuicPass || uuid;
-      var tuicLink = "tuic://" + uuid + ":" + tuicPass + "@" + tuicAddr + ":" + tuicPort +
-        "?congestion_control=bbr&alpn=h3&sni=" + domain + "&allow_insecure=1" +
-        "#" + encodeURIComponent(name + "-tuic");
-      out.push({ type: "tuic", name: name + "-tuic", link: tuicLink });
-    }
-
-    return out;
+  // ---- Read form ----
+  function readForm() {
+    return {
+      server: ($("server").value || "").trim(),
+      port: ($("port").value || "443").trim(),
+      uuid: ($("uuid").value || "").trim(),
+      password: ($("password").value || "").trim(),
+      sni: ($("sni").value || "").trim(),
+      name: ($("nodeName").value || "TUIC-Node").trim(),
+      congestion: $("congestion").value,
+      alpn: $("alpn").value,
+      udpRelay: $("udpRelay").value,
+      allowInsecure: $("allowInsecure").value
+    };
   }
 
-  // ---- 渲染 ----
-  function render(nodes) {
-    var box = $("output");
-    box.innerHTML = "";
+  // ---- Render nodes ----
+  function renderNodes() {
+    var output = $("nodesOutput");
+    var subSection = $("subSection");
+    output.innerHTML = "";
+
     if (!nodes.length) {
-      box.innerHTML = '<p style="color:var(--text-dim);text-align:center">未选择任何协议</p>';
+      subSection.hidden = true;
+      output.innerHTML = '<p class="empty-msg">暂无节点，请在上方添加</p>';
       return;
     }
-    var tpl = $("nodeCardTpl");
-    nodes.forEach(function (n) {
-      var node = tpl.content.cloneNode(true);
-      var badge = node.querySelector(".badge");
-      badge.textContent = n.type.toUpperCase();
-      badge.classList.add(n.type);
-      node.querySelector(".node-name").textContent = n.name;
-      node.querySelector(".link").value = n.link;
 
-      var qrEl = node.querySelector(".qr");
+    subSection.hidden = false;
+
+    // Update subscription content
+    var allLinks = nodes.map(function (n) { return n.link; }).join("\n");
+    $("subContent").value = utf8ToB64(allLinks);
+
+    // Render each node card
+    nodes.forEach(function (node, idx) {
+      var card = document.createElement("div");
+      card.className = "node-card";
+      card.innerHTML =
+        '<div class="node-header">' +
+          '<span class="badge">TUIC</span>' +
+          '<span class="node-name">' + escHtml(node.name) + '</span>' +
+          '<button type="button" class="del-btn" data-idx="' + idx + '" title="删除">✕</button>' +
+        '</div>' +
+        '<div class="node-qr" id="qr-' + idx + '"></div>' +
+        '<div class="node-link-box">' +
+          '<input class="node-link" value="' + escAttr(node.link) + '" readonly />' +
+          '<button type="button" class="copy-btn" data-idx="' + idx + '">复制</button>' +
+        '</div>';
+      output.appendChild(card);
+
+      // QR code
+      var qrEl = document.getElementById("qr-" + idx);
       try {
         new QRCode(qrEl, {
-          text: n.link, width: 116, height: 116,
-          correctLevel: QRCode.CorrectLevel.M
+          text: node.link,
+          width: 160,
+          height: 160,
+          correctLevel: QRCode.CorrectLevel.M,
+          colorDark: "#1a1a2e",
+          colorLight: "#ffffff"
         });
       } catch (e) {
         qrEl.textContent = "二维码生成失败";
       }
+    });
 
-      var copyBtn = node.querySelector(".copy");
-      copyBtn.addEventListener("click", function () {
-        copyText(n.link)
-          .then(function () { toast("已复制 " + n.name, "ok"); })
-          .catch(function () { toast("复制失败，请手动选择", "warn"); });
+    // Bind events
+    output.querySelectorAll(".del-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var i = parseInt(this.getAttribute("data-idx"), 10);
+        nodes.splice(i, 1);
+        persist();
+        renderNodes();
+        toast("已删除节点", "ok");
       });
+    });
 
-      box.appendChild(node);
+    output.querySelectorAll(".copy-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var i = parseInt(this.getAttribute("data-idx"), 10);
+        copyText(nodes[i].link)
+          .then(function () { toast("已复制: " + nodes[i].name, "ok"); })
+          .catch(function () { toast("复制失败", "warn"); });
+      });
     });
   }
 
-  // ---- 校验 + 生成 ----
-  function generate() {
-    var s = readState();
-    if (!s.domain) { toast("请先填写隧道域名", "warn"); $("domain").focus(); return null; }
-    if (!s.uuid) { toast("请先填写或生成 UUID", "warn"); $("uuid").focus(); return null; }
-    if (!s.protocols.length) { toast("请至少勾选一个协议", "warn"); return null; }
-    persist(s);
-    var nodes = buildLinks(s);
-    render(nodes);
-    return nodes;
+  function escHtml(s) {
+    var d = document.createElement("div");
+    d.textContent = s;
+    return d.innerHTML;
   }
 
-  // ---- 事件绑定 ----
+  function escAttr(s) {
+    return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  // ---- Add node ----
+  function addNode() {
+    var cfg = readForm();
+    if (!cfg.server) { toast("请填写服务器地址", "warn"); $("server").focus(); return; }
+    if (!cfg.uuid) { toast("请填写或生成 UUID", "warn"); $("uuid").focus(); return; }
+    if (!cfg.port) { toast("请填写端口", "warn"); $("port").focus(); return; }
+
+    var link = buildTuicLink(cfg);
+    nodes.push({ name: cfg.name, link: link, config: cfg });
+    persist();
+    renderNodes();
+    toast("已添加: " + cfg.name, "ok");
+  }
+
+  // ---- Init ----
   function init() {
     restore();
+    renderNodes();
 
     $("genUuid").addEventListener("click", function () {
       $("uuid").value = uuidv4();
-      toast("已生成新的 UUID", "ok");
+      toast("已生成新 UUID", "ok");
     });
 
-    $("generate").addEventListener("click", generate);
+    $("addNode").addEventListener("click", addNode);
 
-    $("copyAll").addEventListener("click", function () {
-      var nodes = generate();
-      if (!nodes || !nodes.length) return;
-      var all = nodes.map(function (n) { return n.link; }).join("\n");
-      copyText(all)
-        .then(function () { toast("已复制全部 " + nodes.length + " 个节点", "ok"); })
-        .catch(function () { toast("复制失败", "warn"); });
+    $("clearAll").addEventListener("click", function () {
+      if (!nodes.length) return;
+      nodes = [];
+      persist();
+      renderNodes();
+      toast("已清空所有节点", "ok");
     });
 
     $("copySub").addEventListener("click", function () {
-      var nodes = generate();
-      if (!nodes || !nodes.length) return;
-      var sub = utf8ToB64(nodes.map(function (n) { return n.link; }).join("\n"));
-      copyText(sub)
+      var content = $("subContent").value;
+      if (!content) return;
+      copyText(content)
         .then(function () { toast("已复制 Base64 订阅内容", "ok"); })
         .catch(function () { toast("复制失败", "warn"); });
     });
 
-    // 回车即生成
-    document.querySelectorAll(".form-card input").forEach(function (el) {
-      el.addEventListener("keydown", function (e) {
-        if (e.key === "Enter") { e.preventDefault(); generate(); }
-      });
+    $("copySubBtn").addEventListener("click", function () {
+      var content = $("subContent").value;
+      if (!content) return;
+      copyText(content)
+        .then(function () { toast("已复制 Base64 订阅内容", "ok"); })
+        .catch(function () { toast("复制失败", "warn"); });
     });
 
-    // 若有已保存且完整的配置，自动渲染一次
-    var s = readState();
-    if (s.domain && s.uuid) generate();
+    $("copyAllLinks").addEventListener("click", function () {
+      if (!nodes.length) return;
+      var all = nodes.map(function (n) { return n.link; }).join("\n");
+      copyText(all)
+        .then(function () { toast("已复制全部 " + nodes.length + " 个节点链接", "ok"); })
+        .catch(function () { toast("复制失败", "warn"); });
+    });
+
+    // Enter to add
+    document.querySelectorAll(".form-card input").forEach(function (el) {
+      el.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") { e.preventDefault(); addNode(); }
+      });
+    });
   }
 
   if (document.readyState === "loading") {
