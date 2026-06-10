@@ -23,13 +23,16 @@ export async function onRequestGet(context) {
     } catch (e) {}
   }
 
-  // Priority 3: D1 binding
+  // Priority 3: D1 binding (require both uuid and domain to avoid lockout)
   if (!hasCredentials && env.PANEL_DB) {
     try {
-      const row = await env.PANEL_DB.prepare(
+      const rowUuid = await env.PANEL_DB.prepare(
         "SELECT value FROM config WHERE key = 'login_uuid'"
       ).first();
-      if (row && row.value) hasCredentials = true;
+      const rowDomain = await env.PANEL_DB.prepare(
+        "SELECT value FROM config WHERE key = 'login_domain'"
+      ).first();
+      if (rowUuid && rowUuid.value && rowDomain && rowDomain.value) hasCredentials = true;
     } catch (e) {}
   }
 
