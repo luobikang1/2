@@ -78,31 +78,44 @@
       <!-- Quick Generate -->
       <section class="card quick-card">
         <h2 data-i18n="quick_title">一键生成代理节点</h2>
-        <p class="quick-desc" data-i18n="quick_desc">输入域名，选择协议，一键生成可用代理节点 — 无需手动配置</p>
+        <p class="quick-desc" data-i18n="quick_desc">输入域名，一键生成 10 个 VLESS 节点 + 订阅链接 — Cloudflare CDN 全球加速</p>
         <div class="quick-row">
           <label class="field quick-field">
             <span data-i18n="quick_domain">项目域名 *</span>
-            <input id="quickServer" type="text" data-i18n-placeholder="quick_placeholder" placeholder="输入绑定到项目的域名" autocomplete="off" />
-          </label>
-          <label class="field quick-proto-field">
-            <span data-i18n="quick_protocol">协议</span>
-            <select id="quickProto">
-              <option value="vless" selected>VLESS</option>
-              <option value="vmess">VMess</option>
-              <option value="trojan">Trojan</option>
-              <option value="hysteria2">Hysteria2</option>
-              <option value="tuic">TUIC</option>
-            </select>
+            <input id="quickServer" type="text" data-i18n-placeholder="quick_placeholder" placeholder="输入绑定到 Cloudflare 的域名" autocomplete="off" />
           </label>
           <button type="button" id="quickGen" class="primary quick-btn" data-i18n="quick_btn">一键生成</button>
         </div>
+
+        <!-- Subscription output (shown after generation) -->
+        <div id="quickSubOutput" class="quick-sub-output" hidden>
+          <h3 data-i18n="sub_title">订阅链接</h3>
+          <div class="sub-format-row">
+            <label class="sub-format-label">
+              <span>Base64</span>
+              <div class="with-btn">
+                <textarea id="quickSubBase64" rows="2" readonly></textarea>
+                <button type="button" id="copyQuickBase64" class="mini" title="Copy">📋</button>
+              </div>
+            </label>
+            <label class="sub-format-label">
+              <span>sing-box</span>
+              <div class="with-btn">
+                <textarea id="quickSubSingbox" rows="2" readonly></textarea>
+                <button type="button" id="copyQuickSingbox" class="mini" title="Copy">📋</button>
+              </div>
+            </label>
+          </div>
+          <p class="quick-uuid-info" id="quickUuidInfo"></p>
+        </div>
+
         <div class="quick-steps">
           <p class="step-title" data-i18n="steps_title">使用步骤：</p>
           <ol>
-            <li data-i18n="step1">将域名绑定到 Cloudflare 项目（或其他部署平台）</li>
-            <li data-i18n="step2">选择协议类型（推荐 VLESS）</li>
-            <li data-i18n="step3">点击「一键生成」获取节点</li>
-            <li data-i18n="step4">扫描二维码或复制订阅链接导入客户端</li>
+            <li data-i18n="step1">将域名 DNS 解析到 Cloudflare（或绑定 CF Pages 自定义域名）</li>
+            <li data-i18n="step2">在 Cloudflare Pages 环境变量设置 UUID</li>
+            <li data-i18n="step3">点击「一键生成」获取 10 个节点 + 订阅链接</li>
+            <li data-i18n="step4">复制订阅链接导入客户端（支持 sing-box / v2rayN / Clash）</li>
           </ol>
         </div>
       </section>
@@ -207,10 +220,17 @@
         <h2 data-i18n="sub_title">订阅链接</h2>
         <div class="sub-box">
           <label class="field">
-            <span data-i18n="sub_desc">Base64 订阅内容（可直接导入客户端）</span>
+            <span data-i18n="sub_desc">Base64 订阅内容（v2rayN / Clash / Shadowrocket）</span>
             <div class="with-btn">
               <textarea id="subContent" rows="3" readonly></textarea>
               <button type="button" id="copySub" class="mini" title="Copy">📋</button>
+            </div>
+          </label>
+          <label class="field">
+            <span>sing-box JSON（sing-box / NekoBox）</span>
+            <div class="with-btn">
+              <textarea id="subSingbox" rows="3" readonly></textarea>
+              <button type="button" id="copySingbox" class="mini" title="Copy">📋</button>
             </div>
           </label>
         </div>

@@ -206,6 +206,13 @@ body {
 .quick-steps li { color: var(--text); }
 .quick-proto-field { min-width: 120px; max-width: 150px; }
 .quick-hint { display: block; margin-top: 10px; color: var(--text-dim); font-size: 0.78rem; }
+.quick-sub-output { margin-top: 18px; padding: 16px; background: rgba(43, 212, 168, 0.04); border: 1px solid rgba(43, 212, 168, 0.2); border-radius: 10px; }
+.quick-sub-output h3 { color: var(--aurora1); margin: 0 0 12px; font-size: 1rem; }
+.sub-format-row { display: flex; flex-direction: column; gap: 12px; }
+.sub-format-label { width: 100%; }
+.sub-format-label span { font-size: 0.82rem; font-weight: 600; color: var(--text-dim); margin-bottom: 4px; display: block; }
+.sub-format-label textarea { width: 100%; font-size: 0.78rem; resize: vertical; }
+.quick-uuid-info { margin-top: 12px; font-size: 0.82rem; color: var(--aurora1); font-weight: 600; word-break: break-all; }
 
 /* Grid layout */
 .grid {

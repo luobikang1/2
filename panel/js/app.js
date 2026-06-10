@@ -262,6 +262,7 @@
     if (!nodes.length) { subSection.hidden = true; output.innerHTML = '<p class="empty-msg">' + t("empty_nodes") + '</p>'; return; }
     subSection.hidden = false;
     $("subContent").value = utf8ToB64(nodes.map(function (n) { return n.link; }).join("\n"));
+    $("subSingbox").value = buildSingboxConfig(nodes);
 
     nodes.forEach(function (node, idx) {
       var card = document.createElement("div");
@@ -314,43 +315,125 @@
     toast(t("toast_add") + cfg.name, "ok");
   }
 
-  // ---- Quick generate ----
+  // ---- Quick generate (10 nodes + subscription) ----
+  // Cloudflare supported HTTPS ports
+  var CF_PORTS = ["443", "8443", "2053", "2083", "2087", "2096"];
+
   function quickGenerate() {
     var server = ($("quickServer").value || "").trim();
     if (!server) { toast(t("toast_no_domain"), "warn"); $("quickServer").focus(); return; }
-    var proto = $("quickProto").value;
+
     var uuid = uuidv4();
-    var cfg = {
-      protocol: proto,
-      server: server,
-      port: "443",
-      uuid: uuid,
-      sni: server,
-      name: proto.toUpperCase() + "-" + server.split(".")[0],
-      transport: "ws",
-      security: "tls",
-      path: "/" + uuid.slice(0, 8),
-      alpn: proto === "tuic" || proto === "hysteria2" ? "h3" : "h2,http/1.1",
-      congestion: "bbr",
-      allowInsecure: "0"
+    var baseName = server.split(".")[0];
+    var generated = [];
+
+    // Generate 10 VLESS nodes with different port/path combinations
+    for (var i = 0; i < 10; i++) {
+      var port = CF_PORTS[i % CF_PORTS.length];
+      var pathSuffix = i === 0 ? uuid : uuid.slice(0, 8) + "-" + i;
+      var cfg = {
+        protocol: "vless",
+        server: server,
+        port: port,
+        uuid: uuid,
+        sni: server,
+        name: "VLESS-" + baseName + "-" + (i + 1),
+        transport: "ws",
+        security: "tls",
+        path: "/" + pathSuffix,
+        alpn: "h2,http/1.1",
+        congestion: "bbr",
+        allowInsecure: "0"
+      };
+      var link = buildVlessLink(cfg);
+      generated.push({ name: cfg.name, link: link, config: cfg });
+    }
+
+    // Replace all nodes with new batch
+    nodes = generated;
+    persist();
+    renderNodes();
+
+    // Build subscriptions
+    var allLinks = nodes.map(function (n) { return n.link; }).join("\n");
+    var base64Sub = utf8ToB64(allLinks);
+    var singboxJson = buildSingboxConfig(nodes);
+
+    // Show quick sub output
+    var qso = $("quickSubOutput");
+    qso.hidden = false;
+    $("quickSubBase64").value = base64Sub;
+    $("quickSubSingbox").value = singboxJson;
+    $("quickUuidInfo").textContent = "UUID: " + uuid + " — " + t("toast_uuid_hint");
+
+    toast(t("toast_gen_batch"), "ok");
+  }
+
+  // ---- sing-box JSON config builder ----
+  function buildSingboxConfig(nodeList) {
+    var outbounds = [];
+    var tags = [];
+
+    nodeList.forEach(function (node) {
+      var cfg = node.config;
+      if (!cfg || cfg.protocol !== "vless") return;
+      var tag = cfg.name || "proxy-" + tags.length;
+      tags.push(tag);
+      var ob = {
+        type: "vless",
+        tag: tag,
+        server: cfg.server,
+        server_port: parseInt(cfg.port, 10) || 443,
+        uuid: cfg.uuid,
+        flow: "",
+        tls: {
+          enabled: true,
+          server_name: cfg.sni || cfg.server,
+          insecure: cfg.allowInsecure === "1",
+          alpn: (cfg.alpn || "h2,http/1.1").split(",")
+        },
+        transport: {
+          type: "ws",
+          path: cfg.path || "/",
+          headers: { Host: cfg.sni || cfg.server }
+        }
+      };
+      outbounds.push(ob);
+    });
+
+    // Add selector and direct
+    var config = {
+      log: { level: "info" },
+      dns: {
+        servers: [
+          { tag: "google", address: "tls://8.8.8.8" },
+          { tag: "local", address: "223.5.5.5", detour: "direct" }
+        ],
+        rules: [{ geosite: "cn", server: "local" }]
+      },
+      inbounds: [
+        { type: "tun", tag: "tun-in", inet4_address: "172.19.0.1/30", auto_route: true, strict_route: true, sniff: true },
+        { type: "mixed", tag: "mixed-in", listen: "127.0.0.1", listen_port: 2080, sniff: true }
+      ],
+      outbounds: [
+        { type: "selector", tag: "proxy", outbounds: tags.concat(["auto", "direct"]) },
+        { type: "urltest", tag: "auto", outbounds: tags, interval: "5m", tolerance: 200 }
+      ].concat(outbounds).concat([
+        { type: "direct", tag: "direct" },
+        { type: "block", tag: "block" },
+        { type: "dns", tag: "dns-out" }
+      ]),
+      route: {
+        geoip: { download_url: "https://github.com/SagerNet/sing-geoip/releases/latest/download/geoip.db" },
+        geosite: { download_url: "https://github.com/SagerNet/sing-geosite/releases/latest/download/geosite.db" },
+        rules: [
+          { protocol: "dns", outbound: "dns-out" },
+          { geosite: "cn", geoip: "cn", outbound: "direct" }
+        ],
+        auto_detect_interface: true
+      }
     };
-
-    // For VLESS on Cloudflare Workers: path should be /{uuid} for best compatibility
-    if (proto === "vless") {
-      cfg.path = "/" + uuid;
-    }
-
-    var link = buildLink(cfg);
-    nodes.push({ name: cfg.name, link: link, config: cfg });
-    persist(); renderNodes();
-    toast(t("toast_gen") + cfg.name, "ok");
-
-    // Show UUID reminder for Worker config
-    if (proto === "vless" || proto === "vmess" || proto === "trojan") {
-      setTimeout(function () {
-        toast("UUID: " + uuid + " (" + t("toast_uuid_hint") + ")", "info");
-      }, 2600);
-    }
+    return JSON.stringify(config, null, 2);
   }
 
   // ---- Traffic Monitor ----
@@ -449,10 +532,15 @@
     // Copy
     $("copySub").addEventListener("click", function () { copyText($("subContent").value).then(function () { toast(t("toast_copy_sub"), "ok"); }).catch(function () { toast(t("toast_copy_fail"), "warn"); }); });
     $("copySubBtn").addEventListener("click", function () { copyText($("subContent").value).then(function () { toast(t("toast_copy_sub"), "ok"); }).catch(function () { toast(t("toast_copy_fail"), "warn"); }); });
+    $("copySingbox").addEventListener("click", function () { copyText($("subSingbox").value).then(function () { toast("sing-box JSON copied", "ok"); }).catch(function () { toast(t("toast_copy_fail"), "warn"); }); });
     $("copyAllLinks").addEventListener("click", function () {
       if (!nodes.length) return;
       copyText(nodes.map(function (n) { return n.link; }).join("\n")).then(function () { toast(t("toast_copy_all"), "ok"); }).catch(function () { toast(t("toast_copy_fail"), "warn"); });
     });
+
+    // Quick sub copy buttons
+    $("copyQuickBase64").addEventListener("click", function () { copyText($("quickSubBase64").value).then(function () { toast(t("toast_copy_sub"), "ok"); }).catch(function () { toast(t("toast_copy_fail"), "warn"); }); });
+    $("copyQuickSingbox").addEventListener("click", function () { copyText($("quickSubSingbox").value).then(function () { toast("sing-box JSON copied", "ok"); }).catch(function () { toast(t("toast_copy_fail"), "warn"); }); });
 
     // Enter to add
     document.querySelectorAll(".form-card input").forEach(function (el) {
