@@ -30,7 +30,7 @@ export async function onRequest(context) {
   }
 
   // Non-WebSocket request to non-static path — return info page
-  return new Response("北极狐 Proxy Panel - VLESS Worker Active", {
+  return new Response("北极狐 - VLESS Worker Active", {
     headers: { "Content-Type": "text/plain; charset=utf-8" }
   });
 }

@@ -1,8 +1,9 @@
 /**
  * GET /api/config
- * Returns whether login is required.
+ * Returns whether login is required and the proxy UUID (for usable node generation).
  * Login is required when LOGIN_UUID and LOGIN_DOMAIN env vars are set,
  * or when KV/D1 have stored credentials.
+ * The proxy UUID (env.UUID) is returned so the panel can auto-generate a usable node.
  */
 export async function onRequestGet(context) {
   const { env } = context;
@@ -32,7 +33,10 @@ export async function onRequestGet(context) {
     } catch (e) {}
   }
 
-  return new Response(JSON.stringify({ protected: hasCredentials }), {
+  // Proxy UUID for auto-generating usable nodes
+  const proxyUuid = env.UUID || "";
+
+  return new Response(JSON.stringify({ protected: hasCredentials, proxyUuid: proxyUuid }), {
     headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
   });
 }

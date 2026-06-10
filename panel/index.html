@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>北极狐 Proxy Panel — 多协议节点生成与订阅</title>
-  <meta name="description" content="北极狐 Proxy Panel — VLESS/VMess/Trojan/Hysteria2/TUIC 多协议代理节点生成、二维码与订阅链接" />
+  <title>北极狐 — 多协议节点生成与订阅</title>
+  <meta name="description" content="北极狐 — VLESS/VMess/Trojan/Hysteria2/TUIC 多协议代理节点生成、二维码与订阅链接" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%A1%3C/text%3E%3C/svg%3E" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
@@ -14,7 +14,10 @@
   <!-- Login Screen -->
   <div id="lockScreen" class="lock-screen" style="display:none">
     <div class="lock-box">
-      <p class="lock-brand">北极狐 Proxy Panel</p>
+      <p class="lock-brand">北极狐</p>
+      <div class="lock-notice">
+        <p data-i18n="lock_notice">提示：要提取可用节点必须设置变量的 UUID，并保持变量的 UUID 和节点中的 UUID 的一致性，不然只能是节点模板。UUID 可在自定义节点版块生成一个。</p>
+      </div>
       <h2 data-i18n="lock_title">登录面板</h2>
       <p data-i18n="lock_desc">输入 UUID 和绑定域名进入操作界面</p>
       <div class="lock-fields">
@@ -32,47 +35,42 @@
       <div class="topbar">
         <button type="button" id="langToggle" class="icon-btn" title="English / 中文">EN / 中</button>
       </div>
-      <h1>北极狐 Proxy Panel</h1>
+      <h1>北极狐</h1>
       <p class="tagline" data-i18n="tagline">多协议代理节点生成 · VLESS / VMess / Trojan / Hysteria2 / TUIC</p>
       <p class="hint" data-i18n="hint">绑定域名 → 一键生成代理节点 → 扫码或订阅即用</p>
     </header>
 
     <main class="container">
-      <!-- Traffic Monitor -->
-      <section class="card traffic-card">
-        <h2 data-i18n="traffic_title">Cloudflare 代理流量</h2>
-        <div class="traffic-row">
-          <div class="traffic-stat">
-            <span class="traffic-label" data-i18n="traffic_used">已用流量</span>
-            <div class="traffic-value">
-              <input type="number" id="trafficUsed" min="0" step="0.01" value="0" />
-              <select id="trafficUnit">
-                <option value="MB">MB</option>
-                <option value="GB" selected>GB</option>
-                <option value="TB">TB</option>
-              </select>
-            </div>
-          </div>
-          <div class="traffic-stat">
-            <span class="traffic-label" data-i18n="traffic_limit">流量上限</span>
-            <div class="traffic-value">
-              <input type="number" id="trafficLimit" min="0" step="1" value="100" />
-              <select id="trafficLimitUnit">
-                <option value="MB">MB</option>
-                <option value="GB" selected>GB</option>
-                <option value="TB">TB</option>
-              </select>
-            </div>
-          </div>
-          <div class="traffic-stat">
-            <span class="traffic-label" data-i18n="traffic_percent">使用率</span>
-            <span class="traffic-pct" id="trafficPct">0%</span>
+      <!-- Available Subscription (auto-generated from server UUID) -->
+      <section class="card avail-card" id="availSection" hidden>
+        <h2><span class="avail-badge" data-i18n="avail_badge">可用</span> <span data-i18n="avail_title">可用于代理的订阅链接</span></h2>
+        <p class="avail-desc" data-i18n="avail_desc">已检测到服务器 UUID 变量，以下节点和订阅链接可直接使用，兼容各种设备</p>
+        <div class="avail-node">
+          <div class="avail-qr" id="availQr"></div>
+          <div class="avail-links">
+            <label class="field">
+              <span data-i18n="avail_link">节点链接</span>
+              <div class="with-btn">
+                <input id="availNodeLink" type="text" readonly />
+                <button type="button" id="copyAvailLink" class="mini" title="Copy">📋</button>
+              </div>
+            </label>
+            <label class="field">
+              <span>Base64</span>
+              <div class="with-btn">
+                <textarea id="availBase64" rows="2" readonly></textarea>
+                <button type="button" id="copyAvailBase64" class="mini" title="Copy">📋</button>
+              </div>
+            </label>
+            <label class="field">
+              <span>sing-box JSON</span>
+              <div class="with-btn">
+                <textarea id="availSingbox" rows="2" readonly></textarea>
+                <button type="button" id="copyAvailSingbox" class="mini" title="Copy">📋</button>
+              </div>
+            </label>
           </div>
         </div>
-        <div class="traffic-bar-wrap">
-          <div class="traffic-bar" id="trafficBar"></div>
-        </div>
-        <small class="traffic-hint" data-i18n="traffic_hint">Cloudflare Workers 免费版无带宽限制，付费版按用量计费。在此跟踪你的代理流量消耗。</small>
       </section>
 
       <!-- Quick Generate -->
@@ -243,59 +241,6 @@
       <!-- Nodes Output -->
       <section id="nodesOutput" class="nodes-grid" aria-live="polite"></section>
 
-      <!-- Cloudflare Free Tier Usage -->
-      <section class="card cf-card">
-        <h2 data-i18n="cf_title">Cloudflare 免费套餐用量</h2>
-        <p class="cf-desc" data-i18n="cf_desc">输入当前使用量，图表显示免费额度消耗</p>
-        <div class="cf-grid" id="cfGrid">
-          <div class="cf-item">
-            <div class="cf-item-head"><span class="cf-label" data-i18n="cf_pages">Pages 构建</span><span class="cf-limit">/ 500</span></div>
-            <div class="cf-bar-wrap"><div class="cf-bar" id="cfBarPages"></div></div>
-            <div class="cf-input-row"><input type="number" id="cfPages" min="0" max="500" value="0" /></div>
-          </div>
-          <div class="cf-item">
-            <div class="cf-item-head"><span class="cf-label" data-i18n="cf_workers">Workers 请求</span><span class="cf-limit">/ 100K/d</span></div>
-            <div class="cf-bar-wrap"><div class="cf-bar" id="cfBarWorkers"></div></div>
-            <div class="cf-input-row"><input type="number" id="cfWorkers" min="0" max="100000" value="0" /></div>
-          </div>
-          <div class="cf-item">
-            <div class="cf-item-head"><span class="cf-label" data-i18n="cf_kv_read">KV 读取</span><span class="cf-limit">/ 100K/d</span></div>
-            <div class="cf-bar-wrap"><div class="cf-bar" id="cfBarKvRead"></div></div>
-            <div class="cf-input-row"><input type="number" id="cfKvRead" min="0" max="100000" value="0" /></div>
-          </div>
-          <div class="cf-item">
-            <div class="cf-item-head"><span class="cf-label" data-i18n="cf_kv_write">KV 写入</span><span class="cf-limit">/ 1K/d</span></div>
-            <div class="cf-bar-wrap"><div class="cf-bar" id="cfBarKvWrite"></div></div>
-            <div class="cf-input-row"><input type="number" id="cfKvWrite" min="0" max="1000" value="0" /></div>
-          </div>
-          <div class="cf-item">
-            <div class="cf-item-head"><span class="cf-label" data-i18n="cf_r2">R2 存储</span><span class="cf-limit">/ 10 GB</span></div>
-            <div class="cf-bar-wrap"><div class="cf-bar" id="cfBarR2"></div></div>
-            <div class="cf-input-row"><input type="number" id="cfR2" min="0" max="10" step="0.1" value="0" /></div>
-          </div>
-          <div class="cf-item">
-            <div class="cf-item-head"><span class="cf-label" data-i18n="cf_r2a">R2 A 类</span><span class="cf-limit">/ 1M/mo</span></div>
-            <div class="cf-bar-wrap"><div class="cf-bar" id="cfBarR2A"></div></div>
-            <div class="cf-input-row"><input type="number" id="cfR2A" min="0" max="1000000" value="0" /></div>
-          </div>
-          <div class="cf-item">
-            <div class="cf-item-head"><span class="cf-label" data-i18n="cf_r2b">R2 B 类</span><span class="cf-limit">/ 10M/mo</span></div>
-            <div class="cf-bar-wrap"><div class="cf-bar" id="cfBarR2B"></div></div>
-            <div class="cf-input-row"><input type="number" id="cfR2B" min="0" max="10000000" value="0" /></div>
-          </div>
-          <div class="cf-item">
-            <div class="cf-item-head"><span class="cf-label" data-i18n="cf_d1">D1 行读</span><span class="cf-limit">/ 5M/d</span></div>
-            <div class="cf-bar-wrap"><div class="cf-bar" id="cfBarD1"></div></div>
-            <div class="cf-input-row"><input type="number" id="cfD1" min="0" max="5000000" value="0" /></div>
-          </div>
-        </div>
-        <div class="cf-actions">
-          <button type="button" id="cfUpdate" class="primary" data-i18n="cf_refresh">刷新</button>
-          <button type="button" id="cfReset" class="ghost" data-i18n="cf_reset">重置</button>
-        </div>
-      </section>
-
-      <!-- Usage Guide -->
       <section class="card guide-card">
         <h2 data-i18n="guide_title">使用说明</h2>
         <div class="guide-content">
@@ -359,10 +304,99 @@
           </div>
         </div>
       </section>
+
+      <!-- Cloudflare Traffic (moved to footer area) -->
+      <section class="card traffic-card">
+        <h2 data-i18n="traffic_title">Cloudflare 代理流量</h2>
+        <div class="traffic-row">
+          <div class="traffic-stat">
+            <span class="traffic-label" data-i18n="traffic_used">已用流量</span>
+            <div class="traffic-value">
+              <input type="number" id="trafficUsed" min="0" step="0.01" value="0" />
+              <select id="trafficUnit">
+                <option value="MB">MB</option>
+                <option value="GB" selected>GB</option>
+                <option value="TB">TB</option>
+              </select>
+            </div>
+          </div>
+          <div class="traffic-stat">
+            <span class="traffic-label" data-i18n="traffic_limit">流量上限</span>
+            <div class="traffic-value">
+              <input type="number" id="trafficLimit" min="0" step="1" value="100" />
+              <select id="trafficLimitUnit">
+                <option value="MB">MB</option>
+                <option value="GB" selected>GB</option>
+                <option value="TB">TB</option>
+              </select>
+            </div>
+          </div>
+          <div class="traffic-stat">
+            <span class="traffic-label" data-i18n="traffic_percent">使用率</span>
+            <span class="traffic-pct" id="trafficPct">0%</span>
+          </div>
+        </div>
+        <div class="traffic-bar-wrap">
+          <div class="traffic-bar" id="trafficBar"></div>
+        </div>
+        <small class="traffic-hint" data-i18n="traffic_hint">Cloudflare Workers 免费版无带宽限制，付费版按用量计费。在此跟踪你的代理流量消耗。</small>
+      </section>
+
+      <!-- Cloudflare Free Tier Usage -->
+      <section class="card cf-card">
+        <h2 data-i18n="cf_title">Cloudflare 免费套餐用量</h2>
+        <p class="cf-desc" data-i18n="cf_desc">输入当前使用量，图表显示免费额度消耗</p>
+        <div class="cf-grid" id="cfGrid">
+          <div class="cf-item">
+            <div class="cf-item-head"><span class="cf-label" data-i18n="cf_pages">Pages 构建</span><span class="cf-limit">/ 500</span></div>
+            <div class="cf-bar-wrap"><div class="cf-bar" id="cfBarPages"></div></div>
+            <div class="cf-input-row"><input type="number" id="cfPages" min="0" max="500" value="0" /></div>
+          </div>
+          <div class="cf-item">
+            <div class="cf-item-head"><span class="cf-label" data-i18n="cf_workers">Workers 请求</span><span class="cf-limit">/ 100K/d</span></div>
+            <div class="cf-bar-wrap"><div class="cf-bar" id="cfBarWorkers"></div></div>
+            <div class="cf-input-row"><input type="number" id="cfWorkers" min="0" max="100000" value="0" /></div>
+          </div>
+          <div class="cf-item">
+            <div class="cf-item-head"><span class="cf-label" data-i18n="cf_kv_read">KV 读取</span><span class="cf-limit">/ 100K/d</span></div>
+            <div class="cf-bar-wrap"><div class="cf-bar" id="cfBarKvRead"></div></div>
+            <div class="cf-input-row"><input type="number" id="cfKvRead" min="0" max="100000" value="0" /></div>
+          </div>
+          <div class="cf-item">
+            <div class="cf-item-head"><span class="cf-label" data-i18n="cf_kv_write">KV 写入</span><span class="cf-limit">/ 1K/d</span></div>
+            <div class="cf-bar-wrap"><div class="cf-bar" id="cfBarKvWrite"></div></div>
+            <div class="cf-input-row"><input type="number" id="cfKvWrite" min="0" max="1000" value="0" /></div>
+          </div>
+          <div class="cf-item">
+            <div class="cf-item-head"><span class="cf-label" data-i18n="cf_r2">R2 存储</span><span class="cf-limit">/ 10 GB</span></div>
+            <div class="cf-bar-wrap"><div class="cf-bar" id="cfBarR2"></div></div>
+            <div class="cf-input-row"><input type="number" id="cfR2" min="0" max="10" step="0.1" value="0" /></div>
+          </div>
+          <div class="cf-item">
+            <div class="cf-item-head"><span class="cf-label" data-i18n="cf_r2a">R2 A 类</span><span class="cf-limit">/ 1M/mo</span></div>
+            <div class="cf-bar-wrap"><div class="cf-bar" id="cfBarR2A"></div></div>
+            <div class="cf-input-row"><input type="number" id="cfR2A" min="0" max="1000000" value="0" /></div>
+          </div>
+          <div class="cf-item">
+            <div class="cf-item-head"><span class="cf-label" data-i18n="cf_r2b">R2 B 类</span><span class="cf-limit">/ 10M/mo</span></div>
+            <div class="cf-bar-wrap"><div class="cf-bar" id="cfBarR2B"></div></div>
+            <div class="cf-input-row"><input type="number" id="cfR2B" min="0" max="10000000" value="0" /></div>
+          </div>
+          <div class="cf-item">
+            <div class="cf-item-head"><span class="cf-label" data-i18n="cf_d1">D1 行读</span><span class="cf-limit">/ 5M/d</span></div>
+            <div class="cf-bar-wrap"><div class="cf-bar" id="cfBarD1"></div></div>
+            <div class="cf-input-row"><input type="number" id="cfD1" min="0" max="5000000" value="0" /></div>
+          </div>
+        </div>
+        <div class="cf-actions">
+          <button type="button" id="cfUpdate" class="primary" data-i18n="cf_refresh">刷新</button>
+          <button type="button" id="cfReset" class="ghost" data-i18n="cf_reset">重置</button>
+        </div>
+      </section>
     </main>
 
     <footer class="footer">
-      <p data-i18n="footer">北极狐 Proxy Panel · 纯前端，数据不离开浏览器 · 支持多平台部署</p>
+      <p data-i18n="footer">北极狐 · 纯前端，数据不离开浏览器 · 支持多平台部署</p>
     </footer>
   </div>
 

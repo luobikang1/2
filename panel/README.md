@@ -1,4 +1,4 @@
-# 北极狐 Proxy Panel — Cloudflare 节点服务器 + 可视化面板
+# 北极狐 — Cloudflare 节点服务器 + 可视化面板
 
 > Cloudflare 作为节点服务器，域名只需有 DNS 解析或 CDN 即可实现翻墙 · 中国大陆可连接 Google 等外网
 

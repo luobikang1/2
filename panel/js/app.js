@@ -1,5 +1,5 @@
 /* ============================================================================
- * 北极狐 Proxy Panel — 多协议节点可视化生成面板
+ * 北极狐 — 多协议节点可视化生成面板
  * 支持：VLESS / VMess / Trojan / Hysteria2 / TUIC
  * ========================================================================== */
 (function () {
@@ -504,12 +504,65 @@
     } catch (e) {}
   }
 
+  // ---- Available Subscription (auto-generated from server UUID) ----
+  function initAvailableNode() {
+    fetch("/api/config").then(function (res) {
+      if (!res.ok) throw new Error("no api");
+      return res.json();
+    }).then(function (cfg) {
+      if (!cfg.proxyUuid) return;
+      var domain = window.location.hostname;
+      var uuid = cfg.proxyUuid;
+      var nodeCfg = {
+        protocol: "vless",
+        server: domain,
+        port: "443",
+        uuid: uuid,
+        sni: domain,
+        name: "VLESS-" + domain.split(".")[0] + "-可用",
+        transport: "ws",
+        security: "tls",
+        path: "/" + uuid,
+        alpn: "h2,http/1.1",
+        congestion: "bbr",
+        allowInsecure: "0"
+      };
+      var link = buildVlessLink(nodeCfg);
+      var nodeList = [{ name: nodeCfg.name, link: link, config: nodeCfg }];
+      var base64Sub = utf8ToB64(link);
+      var singboxJson = buildSingboxConfig(nodeList);
+
+      // Show available section
+      var sec = $("availSection");
+      sec.hidden = false;
+      $("availNodeLink").value = link;
+      $("availBase64").value = base64Sub;
+      $("availSingbox").value = singboxJson;
+
+      // QR code
+      try {
+        new QRCode(document.getElementById("availQr"), {
+          text: link, width: 160, height: 160,
+          correctLevel: QRCode.CorrectLevel.M, colorDark: "#1a1a2e", colorLight: "#ffffff"
+        });
+      } catch (e) {}
+
+      // Copy buttons
+      $("copyAvailLink").addEventListener("click", function () { copyText(link).then(function () { toast(t("toast_copied") + nodeCfg.name, "ok"); }).catch(function () { toast(t("toast_copy_fail"), "warn"); }); });
+      $("copyAvailBase64").addEventListener("click", function () { copyText(base64Sub).then(function () { toast(t("toast_copy_sub"), "ok"); }).catch(function () { toast(t("toast_copy_fail"), "warn"); }); });
+      $("copyAvailSingbox").addEventListener("click", function () { copyText(singboxJson).then(function () { toast("sing-box JSON copied", "ok"); }).catch(function () { toast(t("toast_copy_fail"), "warn"); }); });
+    }).catch(function () {
+      // No API or no UUID — skip
+    });
+  }
+
   // ---- Init ----
   function init() {
     initLock();
     applyI18n();
     restore();
     renderNodes();
+    initAvailableNode();
 
     // Language
     $("langToggle").addEventListener("click", function () {
