@@ -88,6 +88,25 @@ body {
 }
 .card h2 { margin: 0 0 18px; font-size: 1.15rem; color: var(--accent); }
 
+/* Quick generate */
+.quick-card { border-color: rgba(43, 212, 168, 0.35); }
+.quick-card h2 { color: var(--aurora1); }
+.quick-desc { color: var(--text-dim); font-size: 0.92rem; margin: 0 0 16px; }
+.quick-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.quick-field { flex: 1; min-width: 220px; }
+.quick-btn {
+  height: 44px;
+  padding: 0 24px;
+  font-size: 1rem;
+  white-space: nowrap;
+}
+.quick-hint { display: block; margin-top: 10px; color: var(--text-dim); font-size: 0.78rem; }
+
 /* Grid layout */
 .grid {
   display: grid;

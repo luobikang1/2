@@ -18,9 +18,23 @@
   </header>
 
   <main class="container">
+    <!-- Quick Generate -->
+    <section class="card quick-card">
+      <h2>一键生成</h2>
+      <p class="quick-desc">无需手动配置，点击按钮即可生成可用的 TUIC 节点（自动填充 UUID、端口、拥塞控制等参数）</p>
+      <div class="quick-row">
+        <label class="field quick-field">
+          <span>服务器地址 <em>*</em></span>
+          <input id="quickServer" type="text" placeholder="输入你的服务器地址（域名或 IP）" autocomplete="off" />
+        </label>
+        <button type="button" id="quickGen" class="primary quick-btn">一键生成节点</button>
+      </div>
+      <small class="quick-hint">自动使用：端口 443 / BBR 拥塞控制 / h3 ALPN / 随机 UUID</small>
+    </section>
+
     <!-- Node Form -->
     <section class="card form-card">
-      <h2>节点配置</h2>
+      <h2>自定义配置</h2>
       <div class="grid">
         <label class="field">
           <span>服务器地址 <em>*</em></span>
@@ -94,7 +108,7 @@
       </details>
 
       <div class="actions">
-        <button type="button" id="addNode" class="primary">➕ 添加节点</button>
+        <button type="button" id="addNode" class="primary">➕ 添加自定义节点</button>
         <button type="button" id="clearAll" class="ghost">🗑️ 清空所有</button>
       </div>
     </section>

@@ -190,10 +190,41 @@
     toast("已添加: " + cfg.name, "ok");
   }
 
+  // ---- Quick generate (one-click) ----
+  function quickGenerate() {
+    var server = ($("quickServer").value || "").trim();
+    if (!server) { toast("请输入服务器地址", "warn"); $("quickServer").focus(); return; }
+
+    var uuid = uuidv4();
+    var cfg = {
+      server: server,
+      port: "443",
+      uuid: uuid,
+      password: uuid,
+      sni: server,
+      name: "TUIC-" + server.split(".")[0],
+      congestion: "bbr",
+      alpn: "h3",
+      udpRelay: "native",
+      allowInsecure: "1"
+    };
+
+    var link = buildTuicLink(cfg);
+    nodes.push({ name: cfg.name, link: link, config: cfg });
+    persist();
+    renderNodes();
+    toast("已一键生成: " + cfg.name, "ok");
+  }
+
   // ---- Init ----
   function init() {
     restore();
     renderNodes();
+
+    $("quickGen").addEventListener("click", quickGenerate);
+    $("quickServer").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); quickGenerate(); }
+    });
 
     $("genUuid").addEventListener("click", function () {
       $("uuid").value = uuidv4();
