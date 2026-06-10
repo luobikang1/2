@@ -1,13 +1,23 @@
-# 北极狐 Proxy Panel — 多协议代理节点可视化面板
+# 北极狐 Proxy Panel — Cloudflare 节点服务器 + 可视化面板
 
-> VLESS / VMess / Trojan / Hysteria2 / TUIC · 一键生成 · 二维码 · 订阅链接
+> Cloudflare 作为节点服务器，域名只需有 DNS 解析或 CDN 即可实现翻墙 · 中国大陆可连接 Google 等外网
+
+## 核心原理
+
+```
+用户客户端 → Cloudflare CDN（全球节点） → Pages Functions（VLESS 代理） → 目标网站（Google 等）
+```
+
+**只要你的域名能解析到 Cloudflare（DNS 或 CDN），就能作为 VPN 节点使用。** Cloudflare 免费套餐即可。
 
 ## 功能
 
-- **多协议支持**：VLESS（主推）、VMess、Trojan、Hysteria2、TUIC
+- **Cloudflare 即节点服务器**：域名只需 DNS 解析到 CF 或使用 CDN，即可代理访问外网
+- **一键生成 10 个节点**：自动使用 Cloudflare 支持的 6 个 HTTPS 端口轮换（443/8443/2053/2083/2087/2096）
+- **订阅链接即时输出**：生成节点同时输出 Base64 + sing-box 两种格式订阅
+- **sing-box 内核支持**：完整 JSON 配置（含 DNS/路由/自动选择/国内直连规则）
 - **内置 VLESS 代理**：Cloudflare Pages Functions 自带 VLESS WebSocket 代理，部署即用
-- **一键生成**：输入域名，选择协议，自动配置所有参数
-- **二维码 + 订阅链接**：每个节点自动生成 QR 码，支持 Base64 订阅导入客户端
+- **二维码 + 订阅链接**：每个节点自动生成 QR 码
 - **Cloudflare 代理流量监控**：实时显示已用流量/上限/使用率
 - **Cloudflare 免费套餐用量**：Pages/Workers/KV/R2/D1 额度可视化
 - **登录验证**：UUID + 绑定域名方式验证身份，支持环境变量/KV/D1 三种配置
@@ -159,15 +169,22 @@ var LOGIN_DOMAIN = "your-domain.com";
 
 ## VLESS 代理（节点连通）
 
-本项目内置 VLESS WebSocket 代理功能。部署到 Cloudflare Pages 后，只需设置 `UUID` 环境变量，节点即可连通。
+本项目内置 VLESS WebSocket 代理功能。部署到 Cloudflare Pages 后，只需设置 `UUID` 环境变量，节点即可连通。**中国大陆可直接连接 Google、YouTube 等外网。**
 
 ### 连通步骤
 
 1. **部署到 Cloudflare Pages**（见下方部署说明）
-2. **设置环境变量 `UUID`** = 你生成的 UUID（在面板一键生成后会显示）
-3. **绑定自定义域名**（可选，Pages 默认分配 `.pages.dev` 域名也可用）
-4. **在面板中一键生成节点** — UUID 自动填入，域名填你绑定的域名
-5. **客户端导入** — 扫码或复制订阅链接导入 NekoBox / Clash / v2rayN / Shadowrocket
+2. **设置环境变量 `UUID`** = 你生成的 UUID（一键生成后面板会显示）
+3. **绑定自定义域名**（推荐）或使用 Pages 默认 `.pages.dev` 域名
+4. **在面板输入域名，点击一键生成** — 自动生成 10 个节点 + 订阅链接
+5. **复制订阅链接导入客户端** — 支持 Base64（v2rayN/Clash）和 sing-box JSON 两种格式
+
+### 一键生成说明
+
+- 自动生成 10 个 VLESS 节点，使用 Cloudflare 支持的 6 个 HTTPS 端口轮换
+- 端口：443、8443、2053、2083、2087、2096
+- 同时输出 Base64 订阅（兼容 v2rayN / Clash / Shadowrocket）和 sing-box 完整配置
+- sing-box 配置含：selector 手动选择 + urltest 自动测速 + 国内直连规则
 
 ### 工作原理
 
@@ -191,14 +208,14 @@ var LOGIN_DOMAIN = "your-domain.com";
 
 ### 支持的客户端
 
-| 客户端 | 平台 | 推荐 |
-|--------|------|------|
-| v2rayN | Windows | ★★★ |
-| NekoBox / NekoRay | Windows/Android | ★★★ |
-| Clash Verge / Meta | Windows/macOS/Linux | ★★★ |
-| Shadowrocket | iOS | ★★★ |
-| sing-box | 全平台 | ★★★ |
-| Quantumult X | iOS | ★★ |
+| 客户端 | 平台 | 订阅格式 | 推荐 |
+|--------|------|----------|------|
+| sing-box | 全平台 | sing-box JSON | ★★★★ |
+| NekoBox / NekoRay | Windows/Android | sing-box JSON / Base64 | ★★★★ |
+| v2rayN 6.x+ | Windows | Base64 | ★★★ |
+| Clash Verge / Meta | Windows/macOS/Linux | Base64 | ★★★ |
+| Shadowrocket | iOS | Base64 | ★★★ |
+| Quantumult X | iOS | Base64 | ★★ |
 
 ---
 
