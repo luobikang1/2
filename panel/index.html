@@ -13,23 +13,32 @@
 
   <header class="hero">
     <h1>TUIC Panel</h1>
-    <p class="tagline">TUIC 节点可视化生成 · 二维码 · 订阅链接</p>
-    <p class="hint">输入节点信息，一键生成 <strong>tuic://</strong> 链接、二维码与 Base64 订阅</p>
+    <p class="tagline">绑定域名即可代理 · 二维码 · 订阅链接</p>
+    <p class="hint">绑定项目域名 → 一键生成 <strong>TUIC 代理节点</strong> → 扫码或订阅即用</p>
   </header>
 
   <main class="container">
     <!-- Quick Generate -->
     <section class="card quick-card">
-      <h2>一键生成</h2>
-      <p class="quick-desc">无需手动配置，点击按钮即可生成可用的 TUIC 节点（自动填充 UUID、端口、拥塞控制等参数）</p>
+      <h2>一键生成代理节点</h2>
+      <p class="quick-desc">只需输入绑定到项目的域名，即可生成可用的 TUIC VPN 代理节点 — 无需其他配置</p>
       <div class="quick-row">
         <label class="field quick-field">
-          <span>服务器地址 <em>*</em></span>
-          <input id="quickServer" type="text" placeholder="输入你的服务器地址（域名或 IP）" autocomplete="off" />
+          <span>项目域名 <em>*</em></span>
+          <input id="quickServer" type="text" placeholder="输入绑定到项目的域名（如 node.example.com）" autocomplete="off" />
         </label>
-        <button type="button" id="quickGen" class="primary quick-btn">一键生成节点</button>
+        <button type="button" id="quickGen" class="primary quick-btn">一键生成代理</button>
       </div>
-      <small class="quick-hint">自动使用：端口 443 / BBR 拥塞控制 / h3 ALPN / 随机 UUID</small>
+      <div class="quick-steps">
+        <p class="step-title">使用步骤：</p>
+        <ol>
+          <li>将域名绑定到 Cloudflare 项目</li>
+          <li>在上方输入该域名</li>
+          <li>点击「一键生成代理」获取节点</li>
+          <li>扫描二维码或复制订阅链接导入客户端</li>
+        </ol>
+      </div>
+      <small class="quick-hint">自动配置：端口 443 / BBR 拥塞控制 / h3 ALPN / 随机 UUID / TLS 加密</small>
     </section>
 
     <!-- Node Form -->
